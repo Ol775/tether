@@ -15,6 +15,12 @@ struct ReportBox: Identifiable {
     let report: ChangeReport
 }
 
+struct TizenReportBox: Identifiable {
+    let id = UUID()
+    let title: String
+    let report: TizenReport
+}
+
 struct Toast: Identifiable {
     let id = UUID()
     let message: String
@@ -42,6 +48,8 @@ enum Pane: String, CaseIterable, Identifiable {
     case overview, debloat, tweaks, apps, backups, console
     var id: String { rawValue }
     var title: String { rawValue.capitalized }
+    /// Sections a Tizen TV supports (no adb tweaks or console).
+    static let tizenPanes: [Pane] = [.overview, .debloat, .apps, .backups]
     var symbol: String {
         switch self {
         case .overview: "info.circle"
@@ -59,8 +67,34 @@ final class AppModel {
     var devices: [DeviceProfile] = []
     var selectedSerial: String? {
         // Never show one device's packages and settings while actions would go to another.
-        didSet { if oldValue != selectedSerial { snapshot = nil; restorePoints = []; thirdPartyApps = [] } }
+        didSet {
+            guard oldValue != selectedSerial else { return }
+            snapshot = nil; restorePoints = []; thirdPartyApps = []
+            if selectedSerial != nil { selectedTizenSerial = nil }   // one device at a time
+        }
     }
+    var selectedTizenSerial: String? {
+        didSet {
+            guard oldValue != selectedTizenSerial else { return }
+            tizenApps = []; tizenRestorePoints = []; certificateState = nil
+            if selectedTizenSerial != nil {
+                selectedSerial = nil
+                if !Pane.tizenPanes.contains(section) { section = .overview }
+            }
+        }
+    }
+    var tizenDevices: [TizenDevice] = []
+    var tizenApps: [TizenApp] = []
+    var tizenRestorePoints: [TizenRestorePoint] = []
+    var tizenCatalog: TizenCatalog?
+    var certificateState: CertificateState?
+    var tizenToolsReady = false
+    var toolsProgress: [String] = []
+    var showTizenSetup = false
+    var tizenReportToShow: TizenReportBox?
+    var tizenAddressChangeRevert: TizenRestorePoint?
+    /// Apps each TV refused to remove, by device id; remembered so the UI stops offering them.
+    var lockedByDevice: [String: Set<TizenAppID>] = [:]
     var section: Pane = .overview
     var snapshot: DeviceSnapshot?
     var catalog: Catalog?
@@ -84,6 +118,13 @@ final class AppModel {
     private let log: ChangeLog
     private let installer: Installer
     private let catalogStore: CatalogStore
+    let sdb: SDBRunner
+    let tizenManager: TizenManager
+    let tizenStore: TizenRestorePointStore
+    let tizenEngine: TizenChangeEngine
+    let tools: SamsungTools
+    let certificates: TizenCertificates
+    let tizenOverride: Bool
     let supportDir: URL
 
     init() {
@@ -98,6 +139,17 @@ final class AppModel {
         installer = Installer(adb: adb)
         section = Pane(rawValue: env["TETHER_PANE"] ?? "") ?? .overview   // lets scripts/screenshots.sh open each pane
         catalogStore = CatalogStore(overrideDir: supportDir)
+
+        let samsungHome = supportDir.appendingPathComponent("samsung")
+        tools = SamsungTools(home: samsungHome)
+        tizenOverride = env["TETHER_SDB"] != nil   // demo/tests point at a scripted sdb instead of Samsung's tools
+        sdb = SDBRunner(executable: env["TETHER_SDB"].map { URL(fileURLWithPath: $0) } ?? samsungHome.appendingPathComponent("tizen-studio/tools/sdb"))
+        tizenManager = TizenManager(sdb: sdb)
+        tizenStore = TizenRestorePointStore(root: supportDir.appendingPathComponent("TizenRestorePoints"))
+        tizenEngine = TizenChangeEngine(sdb: sdb, store: tizenStore, log: log, tizenCLI: samsungHome.appendingPathComponent("tizen-studio/tools/ide/bin/tizen"))
+        certificates = TizenCertificates(tools: tools)
+        tizenToolsReady = tizenOverride || tools.isInstalled
+        lockedByDevice = Self.loadLocked(supportDir.appendingPathComponent("tizen-locked.json"))
     }
 
     private static func adbURL(_ env: [String: String]) -> URL {
@@ -125,6 +177,9 @@ final class AppModel {
         switch error {
         case let e as ADBError: e.advice
         case let e as GitHubError: e.advice
+        case let e as SDBError: e.advice
+        case let e as TizenError: e.advice
+        case let e as SamsungToolsError: e.advice
         case let e as ChangeError:
             switch e {
             case .wrongDevice: "That restore point belongs to a different device."
@@ -153,7 +208,7 @@ final class AppModel {
         guard let found = try? await deviceManager.devices() else { return }
         if found != devices {
             devices = found
-            if selected == nil { selectedSerial = found.first?.serial }
+            if selected == nil && selectedTizen == nil { selectedSerial = found.first?.serial }
             try? await reload()
         }
     }

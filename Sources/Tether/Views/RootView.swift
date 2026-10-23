@@ -28,6 +28,7 @@ struct RootView: View {
             }
         }
         .sheet(isPresented: $model.showPairing) { PairingSheet() }
+        .sheet(isPresented: $model.showTizenSetup) { TizenSetupSheet() }
         .sheet(item: $model.reportToShow) { ReportSheet(box: $0) }
         .sheet(item: $model.pendingChoice, onDismiss: { model.pendingChoice?.resolve(nil) }) { request in
             VStack(alignment: .leading, spacing: 12) {
@@ -53,6 +54,7 @@ struct RootView: View {
         .task {
             while !Task.isCancelled {
                 await model.pollDevices()
+                await model.pollTizen()
                 try? await Task.sleep(for: .seconds(4))
             }
         }

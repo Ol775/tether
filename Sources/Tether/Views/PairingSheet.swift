@@ -6,7 +6,7 @@ struct PairingSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     private enum Kind: String, CaseIterable, Identifiable {
-        case fireTV = "Fire TV", androidTV = "Android / Google TV", phone = "Phone or tablet"
+        case fireTV = "Fire TV", androidTV = "Android / Google TV", phone = "Phone or tablet", samsungTV = "Samsung TV"
         var id: String { rawValue }
         var steps: [String] {
             switch self {
@@ -20,6 +20,11 @@ struct PairingSheet: View {
                 "Settings → System → Developer options → turn on USB debugging (and Wireless debugging if offered).",
                 "Settings → Network shows the IP address.",
                 "Enter it below, then approve the debugging prompt on the TV."]
+            case .samsungTV: [
+                "On the TV open Apps, then press 1 2 3 4 5 on the remote. Turn Developer mode on.",
+                "Enter this Mac's IP address in the Host PC IP field (shown below), then restart the TV.",
+                "Come back here, enter the TV's IP address and press Connect. Port 26101 is the default.",
+                "Tether sets up Samsung's tools the first time you use a TV. Models from 2019 onwards are supported."]
             case .phone: [
                 "Settings → About phone, then tap Build number seven times.",
                 "Settings → Developer options → Wireless debugging → on.",
@@ -55,6 +60,19 @@ struct PairingSheet: View {
             .padding(14).frame(maxWidth: .infinity, alignment: .leading)
             .background(.quaternary.opacity(0.4), in: .rect(cornerRadius: 12))
             .animation(Theme.smooth, value: kind)
+            .onChange(of: kind) { port = kind == .samsungTV ? "26101" : "5555" }
+
+            if kind == .samsungTV {
+                HStack {
+                    Text("This Mac's IP address:").foregroundStyle(.secondary)
+                    Text(LocalNetwork.address ?? "not on a network").textSelection(.enabled).fontWeight(.medium)
+                    Spacer()
+                    if !model.tizenToolsReady {
+                        Button("Set up Samsung tools…") { model.showTizenSetup = true }.buttonStyle(.glass)
+                    }
+                }
+                .font(.callout)
+            }
 
             if !found.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
@@ -84,9 +102,13 @@ struct PairingSheet: View {
             HStack {
                 TextField("IP address", text: $host).textFieldStyle(.roundedBorder)
                 TextField("Port", text: $port).textFieldStyle(.roundedBorder).frame(width: 80)
-                Button("Connect") { go { try await model.connect(host: host.trimmingCharacters(in: .whitespaces), port: Int(port) ?? 5555) } }
-                    .buttonStyle(.glassProminent)
-                    .disabled(host.isEmpty || working)
+                Button("Connect") {
+                    let host = host.trimmingCharacters(in: .whitespaces)
+                    if kind == .samsungTV { go { try await model.connectTizen(host: host, port: Int(port) ?? 26101) } }
+                    else { go { try await model.connect(host: host, port: Int(port) ?? 5555) } }
+                }
+                .buttonStyle(.glassProminent)
+                .disabled(host.isEmpty || working || (kind == .samsungTV && !model.tizenToolsReady))
             }
 
             if let message {
@@ -103,7 +125,7 @@ struct PairingSheet: View {
         message = nil
         Task {
             defer { working = false }
-            do { try await work(); if model.selected != nil { dismiss() } }
+            do { try await work(); if model.selected != nil || model.selectedTizen != nil { dismiss() } }
             catch { message = model.advice(for: error) }
         }
     }
