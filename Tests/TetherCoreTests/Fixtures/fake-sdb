@@ -28,16 +28,18 @@ case "$cmd" in
   install)
     mutating; echo "install $*" >> "$D/installs.log"
     id=$(basename "${!#}" | sed 's/\.[a-z]*$//')
-    has apps.txt "$id" || echo "$id" >> "$D/apps.txt"
+    grep -qF -- "'$id'" "$D/apps_list.txt" 2>/dev/null || echo "'$id'  '$id'" >> "$D/apps_list.txt"
     echo "installed" ;;
   shell)
     set -- $*
     case "$*" in
       "0 applist") list apps_list.txt ;;
       0\ vd_appuninstall\ *)
+        [[ -f $D/no_vd ]] && { echo "unsupported: $*" >&2; exit 1; }
         mutating
         id=$3
-        if has locked_apps.txt "$id"; then echo "can not uninstall app"; else drop apps_list.txt "$id"; echo "uninstalled $id"; fi ;;
+        if has locked_apps.txt "$id"; then echo "can not uninstall app"
+        else grep -vF -- "'$id'" "$D/apps_list.txt" > "$D/apps_list.tmp"; mv "$D/apps_list.tmp" "$D/apps_list.txt"; echo "uninstalled $id"; fi ;;
       *) echo "unsupported: $*" >&2; exit 1 ;;
     esac ;;
   *) echo "unknown: $cmd" >&2; exit 1 ;;
