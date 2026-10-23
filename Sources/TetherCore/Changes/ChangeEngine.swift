@@ -14,6 +14,7 @@ public actor ChangeEngine {
     private let adb: ADBRunner
     private let store: RestorePointStore
     private let log: ChangeLog
+    private var active: Set<String> = []
 
     public init(adb: ADBRunner, store: RestorePointStore, log: ChangeLog) {
         self.adb = adb
@@ -22,14 +23,23 @@ public actor ChangeEngine {
     }
 
     public func apply(_ changes: [Change], on device: DeviceProfile, reason: String) async throws -> ChangeReport {
-        try await run(changes, on: device, reason: reason, fallback: nil)
+        try await exclusive(device) { try await run(changes, on: device, reason: reason, fallback: nil) }
     }
 
     /// Undoes what `rp` was taken for. Itself takes a restore point, so a revert can be reverted.
     public func revert(_ rp: RestorePoint, on device: DeviceProfile) async throws -> ChangeReport {
-        guard rp.profile.serial == device.serial else { throw ChangeError.wrongDevice }
-        let current = try await DeviceSnapshot.capture(adb: adb, serial: device.serial)
-        return try await run(RevertPlanner.plan(rp, current: current), on: device, reason: "Revert: \(rp.reason)", fallback: rp)
+        guard rp.profile.deviceID == device.deviceID else { throw ChangeError.wrongDevice }
+        return try await exclusive(device) {
+            let current = try await DeviceSnapshot.capture(adb: adb, serial: device.serial)
+            return try await run(RevertPlanner.plan(rp, current: current), on: device, reason: "Revert: \(rp.reason)", fallback: rp)
+        }
+    }
+
+    /// The actor is reentrant across awaits, so two runs on one device could interleave; refuse the second.
+    private func exclusive<T>(_ device: DeviceProfile, _ body: () async throws -> T) async throws -> T {
+        guard active.insert(device.deviceID).inserted else { throw ChangeError.busy }
+        defer { active.remove(device.deviceID) }
+        return try await body()
     }
 
     private func run(_ changes: [Change], on device: DeviceProfile, reason: String, fallback: RestorePoint?) async throws -> ChangeReport {
@@ -74,7 +84,7 @@ public actor ChangeEngine {
             guard case .restorePackage(let p) = change, let fallback else { throw error }
             let apks = await store.apkURLs(fallback, for: p).map(\.path)
             guard !apks.isEmpty else { throw error }
-            _ = try await adb.run((apks.count == 1 ? ["install", "-r"] : ["install-multiple", "-r"]) + apks, serial: serial)
+            _ = try await adb.run((apks.count == 1 ? ["install", "-r"] : ["install-multiple", "-r"]) + apks, serial: serial, timeout: ADBRunner.transferTimeout)
         }
     }
 

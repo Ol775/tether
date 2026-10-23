@@ -3,7 +3,10 @@ public enum Platform: String, Codable, Sendable {
 }
 
 public struct DeviceProfile: Codable, Equatable, Sendable, Identifiable {
+    /// Address adb talks to (IP:port); changes with DHCP and wireless-debugging ports.
     public let serial: String
+    /// Hardware identity that survives an address change; restore points belong to this.
+    public let deviceID: String
     public let vendor: String          // lowercased ro.product.manufacturer
     public let model: String
     public let androidVersion: String
@@ -13,8 +16,9 @@ public struct DeviceProfile: Codable, Equatable, Sendable, Identifiable {
 
     public var id: String { serial }
 
-    public init(serial: String, vendor: String, model: String, androidVersion: String, sdk: Int, abis: [String], platform: Platform) {
+    public init(serial: String, deviceID: String? = nil, vendor: String, model: String, androidVersion: String, sdk: Int, abis: [String], platform: Platform) {
         self.serial = serial
+        self.deviceID = deviceID ?? serial
         self.vendor = vendor
         self.model = model
         self.androidVersion = androidVersion

@@ -97,6 +97,24 @@ struct ChangeEngineTests {
         #expect(r.mutatingCalls().count == before)
     }
 
+    @Test func revertWorksWhenTheAddressChanges() async throws {
+        let r = try rig()
+        let report = try await r.engine.apply([.removePackage(a)], on: device, reason: "t")
+        // Same hardware, new IP:port (DHCP lease or a fresh wireless-debugging port).
+        let moved = DeviceProfile(serial: "192.168.1.77:41234", deviceID: device.deviceID, vendor: "amazon", model: "AFTMM", androidVersion: "9", sdk: 28, abis: [], platform: .fireOS)
+        let reverted = try await r.engine.revert(report.restorePoint, on: moved)
+        #expect(reverted.failed == nil && r.installed().contains(a.value))
+    }
+
+    @Test func secondRunOnTheSameDeviceIsRefusedWhileOneIsInFlight() async throws {
+        let r = try rig(["sleep": "0.2"])
+        async let first = r.engine.apply([.removePackage(a)], on: device, reason: "first")
+        try await Task.sleep(for: .milliseconds(100))
+        await #expect(throws: ChangeError.busy) { try await r.engine.apply([.removePackage(b)], on: device, reason: "second") }
+        _ = try await first
+        #expect(r.installed().contains(b.value))
+    }
+
     @Test func usesSerialOnEveryCall() async throws {
         let r = try rig()
         let report = try await r.engine.apply([.removePackage(a), .setSetting(ns: .global, key: "k", value: "1")], on: device, reason: "t")

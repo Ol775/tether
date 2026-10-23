@@ -24,6 +24,7 @@ public enum Parsers {
         let abiList = props["ro.product.cpu.abilist"] ?? props["ro.product.cpu.abi"] ?? ""
         return DeviceProfile(
             serial: serial,
+            deviceID: props["ro.serialno"] ?? props["ro.boot.serialno"],
             vendor: vendor,
             model: props["ro.product.model"] ?? "Unknown",
             androidVersion: props["ro.build.version.release"] ?? "?",

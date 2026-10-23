@@ -19,6 +19,7 @@ public enum ChangeError: Error, Equatable, Sendable {
     case unsafeValue
     case wrongDevice
     case empty
+    case busy
 }
 
 extension Change {

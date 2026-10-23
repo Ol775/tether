@@ -4,17 +4,22 @@ import Foundation
 public actor ADBRunner {
     private let executable: URL
     private let port: Int
+    private let defaultTimeout: Duration
 
-    public init(executable: URL, port: Int = 5038) {
+    /// Pulls and installs move whole APKs over Wi-Fi, so they get minutes rather than the short command timeout.
+    public static let transferTimeout: Duration = .seconds(600)
+
+    public init(executable: URL, port: Int = 5038, defaultTimeout: Duration = .seconds(15)) {
         self.executable = executable
         self.port = port
+        self.defaultTimeout = defaultTimeout
     }
 
-    public func run(_ args: [String], serial: String? = nil, timeout: Duration = .seconds(15)) async throws -> String {
+    public func run(_ args: [String], serial: String? = nil, timeout: Duration? = nil) async throws -> String {
         var full = ["-P", String(port)]
         if let serial { full += ["-s", serial] }
         full += args
-        return try await Self.exec(executable, full, timeout: timeout)
+        return try await Self.exec(executable, full, timeout: timeout ?? defaultTimeout)
     }
 
     // Output goes to temp files, so a chatty child can never fill a pipe and deadlock us.

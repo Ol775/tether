@@ -57,7 +57,10 @@ enum Pane: String, CaseIterable, Identifiable {
 @MainActor @Observable
 final class AppModel {
     var devices: [DeviceProfile] = []
-    var selectedSerial: String?
+    var selectedSerial: String? {
+        // Never show one device's packages and settings while actions would go to another.
+        didSet { if oldValue != selectedSerial { snapshot = nil; restorePoints = []; thirdPartyApps = [] } }
+    }
     var section: Pane = .overview
     var snapshot: DeviceSnapshot?
     var catalog: Catalog?
@@ -120,14 +123,21 @@ final class AppModel {
         switch error {
         case let e as ADBError: e.advice
         case let e as GitHubError: e.advice
-        case let e as ChangeError: e == .wrongDevice ? "That restore point belongs to a different device." : "Nothing to do."
+        case let e as ChangeError:
+            switch e {
+            case .wrongDevice: "That restore point belongs to a different device."
+            case .busy: "Another change is still running on this device. Wait for it to finish."
+            default: "Nothing to do."
+            }
         case let e as RestoreError: "Couldn't save a restore point first, so nothing was changed. \(e)"
         case let e as DeviceError: e == .invalidHost ? "That address doesn't look right." : "Pairing codes are six digits."
         default: error.localizedDescription
         }
     }
 
+    /// One job at a time: a second request while busy is dropped (the buttons are disabled anyway).
     func run(_ title: String = "Something went wrong", _ work: () async throws -> Void) async {
+        guard !isBusy else { return }
         isBusy = true
         defer { isBusy = false }
         do { try await work() }
@@ -147,17 +157,23 @@ final class AppModel {
     }
 
     func select(_ serial: String) async {
+        guard !isBusy else { return }
         selectedSerial = serial
         await run("Couldn't read the device") { try await reload() }
     }
 
     func reload() async throws {
         guard let device = selected else { snapshot = nil; restorePoints = []; thirdPartyApps = []; return }
-        snapshot = try await DeviceSnapshot.capture(adb: adb, serial: device.serial)
-        catalog = try catalogStore.load()
-        restorePoints = try await store.list().filter { $0.profile.serial == device.serial }
-        let third = try await adb.run(["shell", "pm", "list", "packages", "-3", "--user", "0"], serial: device.serial)
-        thirdPartyApps = Parsers.packages(all: third, installed: third, disabled: "").map(\.name)
+        do {
+            snapshot = try await DeviceSnapshot.capture(adb: adb, serial: device.serial)
+            catalog = try catalogStore.load()
+            restorePoints = try await store.list().filter { $0.profile.deviceID == device.deviceID }
+            let third = try await adb.run(["shell", "pm", "list", "packages", "-3", "--user", "0"], serial: device.serial)
+            thirdPartyApps = Parsers.packages(all: third, installed: third, disabled: "").map(\.name)
+        } catch {
+            snapshot = nil   // don't leave a stale picture of a device we can no longer read
+            throw error
+        }
     }
 
     func connect(host: String, port: Int) async throws {
@@ -181,8 +197,8 @@ final class AppModel {
         guard let device = selected else { return }
         await run("Couldn't apply the change") {
             let report = try await engine.apply(changes, on: device, reason: reason)
-            try await reload()
-            present(report, title: reason, showReport: showReport)
+            present(report, title: reason, showReport: showReport)   // before reload: if the device just dropped, the report is all the user has
+            try? await reload()
         }
     }
 
@@ -190,8 +206,8 @@ final class AppModel {
         guard let device = selected else { return }
         await run("Couldn't revert") {
             let report = try await engine.revert(rp, on: device)
-            try await reload()
             present(report, title: "Reverted: \(rp.reason)", showReport: true)
+            try? await reload()
         }
     }
 
@@ -246,15 +262,15 @@ final class AppModel {
 
     func setLauncher(_ package: PackageName) async {
         guard let device = selected else { return }
+        var component: String?
         await run("Couldn't set the launcher") {
             let out = try await adb.run(["shell", "cmd", "package", "resolve-activity", "--brief", "-a", "android.intent.action.MAIN",
                                          "-c", "android.intent.category.HOME", "-p", package.value], serial: device.serial)
-            guard let component = out.split(whereSeparator: \.isNewline).last(where: { $0.contains("/") }).map(String.init) else {
-                alert = AppAlert(title: "Not a launcher", message: "\(package.value) doesn't offer a home screen.")
-                return
-            }
-            await apply([.setHome(component)], reason: "Default launcher: \(package.value)")
+            component = out.split(whereSeparator: \.isNewline).last(where: { $0.contains("/") }).map(String.init)
+            if component == nil { alert = AppAlert(title: "Not a launcher", message: "\(package.value) doesn't offer a home screen.") }
         }
+        guard let component else { return }
+        await apply([.setHome(component)], reason: "Default launcher: \(package.value)")
     }
 
     // MARK: - console

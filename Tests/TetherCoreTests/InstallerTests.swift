@@ -148,4 +148,11 @@ struct InstallerTests {
             try await Installer(adb: fake.runner, session: StubURLProtocol.session).installLatest(of: "\(owner)/r", on: phone) { _ in nil }
         }
     }
+
+    @Test func bigTransfersAreNotKilledByTheShortCommandTimeout() async throws {
+        let fake = try FakeADB(files: ["sleep": "0.5"], defaultTimeout: .milliseconds(200))
+        let apk = fake.dir.appendingPathComponent("big.apk")
+        try Data([1]).write(to: apk)
+        try await Installer(adb: fake.runner).install(apk: apk, on: phone)
+    }
 }

@@ -6,7 +6,7 @@ struct FakeADB {
     let dir: URL
     let runner: ADBRunner
 
-    init(files: [String: String] = [:]) throws {
+    init(files: [String: String] = [:], defaultTimeout: Duration = .seconds(15)) throws {
         dir = FileManager.default.temporaryDirectory.appendingPathComponent("fakeadb-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let src = Bundle.module.url(forResource: "fake-adb", withExtension: nil, subdirectory: "Fixtures")!
@@ -15,7 +15,7 @@ struct FakeADB {
         for (name, text) in files {
             try text.write(to: dir.appendingPathComponent(name), atomically: true, encoding: .utf8)
         }
-        runner = ADBRunner(executable: exe)
+        runner = ADBRunner(executable: exe, defaultTimeout: defaultTimeout)
     }
 
     func calls() -> [String] { lines("calls.log") }

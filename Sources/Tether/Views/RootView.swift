@@ -89,7 +89,7 @@ struct ToastHost: View {
                 Text(toast.message).lineLimit(1)
                 if let undo = toast.undo {
                     Button("Undo") { model.toast = nil; Task { await model.revert(undo) } }
-                        .buttonStyle(.glass)
+                        .buttonStyle(.glass).disabled(model.isBusy)
                 }
             }
             .padding(.horizontal, 16).padding(.vertical, 10)
@@ -116,12 +116,16 @@ struct ReportSheet: View {
             Label(box.title, systemImage: r.failed == nil ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(r.failed == nil ? Color.green : Color.orange)
-            Text("\(r.applied.count) change\(r.applied.count == 1 ? "" : "s") applied" + (r.verified ? ", confirmed on the device." : "; couldn't confirm on the device."))
+            Text(r.applied.isEmpty ? "Nothing was applied." : "Applied" + (r.verified ? ", confirmed on the device:" : ", but couldn't confirm on the device:"))
+            changeList(r.applied)
             if let (change, error) = r.failed {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Stopped at: \(describe(change))").fontWeight(.medium)
                     Text(error.advice).foregroundStyle(.secondary)
-                    if !r.pending.isEmpty { Text("\(r.pending.count) more not applied.").foregroundStyle(.secondary) }
+                    if !r.pending.isEmpty {
+                        Text("Not applied:").foregroundStyle(.secondary)
+                        changeList(r.pending)
+                    }
                 }
                 .padding(12).frame(maxWidth: .infinity, alignment: .leading)
                 .background(Color.orange.opacity(0.12), in: .rect(cornerRadius: 10))
@@ -129,13 +133,20 @@ struct ReportSheet: View {
             Text("A restore point was saved before anything changed.").font(.callout).foregroundStyle(.secondary)
             HStack {
                 Spacer()
-                if !r.applied.isEmpty {
-                    Button("Revert") { dismiss(); Task { await model.revert(r.restorePoint) } }
-                }
+                // Always offered: the failed change may still have landed, and the planner skips what needs no undo.
+                Button("Revert") { dismiss(); Task { await model.revert(r.restorePoint) } }.disabled(model.isBusy)
                 Button("Done") { dismiss() }.buttonStyle(.glassProminent).keyboardShortcut(.defaultAction)
             }
         }
         .padding(24).frame(width: 460)
+    }
+
+    private func changeList(_ changes: [Change]) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            ForEach(Array(changes.enumerated()), id: \.offset) { _, change in
+                Text("• \(describe(change))").font(.callout).foregroundStyle(.secondary)
+            }
+        }
     }
 
     private func describe(_ change: Change) -> String {

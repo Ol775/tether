@@ -65,7 +65,7 @@ public actor RestorePointStore {
         var relative: [String] = []
         for path in remote {
             let name = (path as NSString).lastPathComponent
-            _ = try await adb.run(["pull", path, dir.appendingPathComponent(name).path], serial: serial)
+            _ = try await adb.run(["pull", path, dir.appendingPathComponent(name).path], serial: serial, timeout: ADBRunner.transferTimeout)
             relative.append("apks/\(pkg.value)/\(name)")
         }
         return relative

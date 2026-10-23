@@ -11,7 +11,7 @@ public actor Installer {
     }
 
     public func install(apk: URL, on device: DeviceProfile) async throws {
-        let out = try await adb.run(["install", "-r", apk.path], serial: device.serial)
+        let out = try await adb.run(["install", "-r", apk.path], serial: device.serial, timeout: ADBRunner.transferTimeout)
         guard out.contains("Success") else { throw ADBError.classify(code: 1, output: out) }
     }
 

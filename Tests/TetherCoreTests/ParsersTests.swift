@@ -60,4 +60,11 @@ struct ParsersTests {
     @Test func packageNameAcceptsReal() {
         #expect(PackageName("com.amazon.recess")?.value == "com.amazon.recess")
     }
+
+    @Test func profileKeepsAStableIDApartFromTheAddress() {
+        let withSerial = Parsers.profile(serial: "10.0.0.2:5555", getprop: "[ro.serialno]: [G070VM123]\n")
+        #expect(withSerial.deviceID == "G070VM123" && withSerial.serial == "10.0.0.2:5555")
+        let without = Parsers.profile(serial: "10.0.0.2:5555", getprop: "")
+        #expect(without.deviceID == "10.0.0.2:5555")
+    }
 }

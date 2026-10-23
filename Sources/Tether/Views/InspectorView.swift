@@ -42,7 +42,7 @@ struct InspectorView: View {
                     HStack {
                         Text(rp.createdAt.formatted(date: .abbreviated, time: .shortened)).font(.callout)
                         Spacer()
-                        Button("Revert") { Task { await model.revert(rp) } }.buttonStyle(.glass).controlSize(.small)
+                        Button("Revert batch (\(rp.changes.count))") { Task { await model.revert(rp) } }.buttonStyle(.glass).controlSize(.small).disabled(model.isBusy)
                     }
                 }
             }

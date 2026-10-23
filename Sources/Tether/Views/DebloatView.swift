@@ -58,6 +58,7 @@ struct DebloatView: View {
         .safeAreaInset(edge: .bottom) {
             if mode == .installed && !chosen.isEmpty {
                 ActionBar(count: chosen.count) { confirming = true }
+                    .disabled(model.isBusy)
                     .padding(.bottom, 16)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
@@ -89,7 +90,7 @@ struct DebloatView: View {
             Spacer()
             if mode == .removed {
                 Button("Restore") { Task { await model.apply([.restorePackage(entry.package)], reason: "Restored \(entry.title)") } }
-                    .buttonStyle(.glass).controlSize(.small)
+                    .buttonStyle(.glass).controlSize(.small).disabled(model.isBusy)
             }
         }
         .padding(.vertical, 3)
