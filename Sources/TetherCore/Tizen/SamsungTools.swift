@@ -5,6 +5,7 @@ public enum SamsungToolsError: Error, Equatable, Sendable {
     case licenseNotAccepted
     case insecureURL
     case downloadFailed(status: Int)
+    case checksumMismatch
     case installerFailed(code: Int32, output: String)
     case toolsMissingAfterInstall
 
@@ -13,6 +14,7 @@ public enum SamsungToolsError: Error, Equatable, Sendable {
         case .licenseNotAccepted: "Read and accept Samsung's licence to download their tools."
         case .insecureURL: "The download address isn't secure, so Tether refused it."
         case .downloadFailed(let status): "Samsung's download server answered \(status). Try again later."
+        case .checksumMismatch: "The download didn't match the installer Tether expects, so it was not run. Samsung may have changed it; check for a Tether update."
         case .installerFailed(_, let output): output.isEmpty ? "Samsung's installer failed." : "Samsung's installer failed: \(output)"
         case .toolsMissingAfterInstall: "The installer finished but sdb wasn't found. Try again."
         }
@@ -24,14 +26,21 @@ public enum SamsungToolsError: Error, Equatable, Sendable {
 public actor SamsungTools {
     public static let defaultInstallerURL = URL(string: "https://download.tizen.org/sdk/Installer/tizen-studio_6.0/web-cli_Tizen_Studio_6.0_macos-64.bin")!
 
+    /// SHA-256 of that exact file (277,146,828 bytes, Last-Modified 2024-11-01), taken when this was written.
+    /// Samsung publishes no checksum, so this pins what was seen then; a changed file is refused, not run.
+    public static let defaultInstallerSHA256 = "3205597d127c4b93d924f591153b0b2f83f4ab90c4abc8786b3e902397e5488e"
+
     private let home: URL
     private let session: URLSession
     private let installerURL: URL
+    private let expectedSHA256: String
 
-    public init(home: URL, session: URLSession = .shared, installerURL: URL = SamsungTools.defaultInstallerURL) {
+    public init(home: URL, session: URLSession = .shared, installerURL: URL = SamsungTools.defaultInstallerURL,
+                expectedSHA256: String = SamsungTools.defaultInstallerSHA256) {
         self.home = home
         self.session = session
         self.installerURL = installerURL
+        self.expectedSHA256 = expectedSHA256.lowercased()
     }
 
     private nonisolated var root: URL { home.appendingPathComponent("tizen-studio") }
@@ -57,12 +66,13 @@ public actor SamsungTools {
         try? FileManager.default.removeItem(at: root)   // never build on a half-finished earlier run
         do {
             progress("Downloading Samsung's tools…")
-            let (temp, response) = try await session.download(from: installerURL)
+            let (temp, response) = try await session.download(from: installerURL, delegate: SameHostHTTPSRedirects())
             defer { try? FileManager.default.removeItem(at: temp) }
             let status = (response as? HTTPURLResponse)?.statusCode ?? 0
             guard status == 200 else { throw SamsungToolsError.downloadFailed(status: status) }
             let digest = SHA256.hash(data: try Data(contentsOf: temp, options: .mappedIfSafe)).map { String(format: "%02x", $0) }.joined()
-            progress("Downloaded (sha256 \(digest.prefix(16))…). Running Samsung's installer…")
+            guard digest == expectedSHA256 else { throw SamsungToolsError.checksumMismatch }   // before it is made executable or run
+            progress("Downloaded and verified (sha256 \(digest.prefix(16))…). Running Samsung's installer…")
 
             let installer = home.appendingPathComponent("installer-\(UUID().uuidString).bin")
             defer { try? FileManager.default.removeItem(at: installer) }
@@ -90,5 +100,15 @@ public actor SamsungTools {
         guard r.status == 0 else {
             throw SamsungToolsError.installerFailed(code: r.status, output: (r.err + r.out).trimmingCharacters(in: .whitespacesAndNewlines))
         }
+    }
+}
+
+/// Follows a redirect only when it stays on the same host over https; otherwise the 3xx comes back and the
+/// download is reported as failed. Without this, https validation of the first URL says nothing about the last.
+private final class SameHostHTTPSRedirects: NSObject, URLSessionTaskDelegate {
+    func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
+                    newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
+        let ok = request.url?.scheme == "https" && request.url?.host == task.originalRequest?.url?.host
+        completionHandler(ok ? request : nil)
     }
 }

@@ -18,6 +18,10 @@ final class StubURLProtocol: URLProtocol, @unchecked Sendable {
     override func startLoading() {
         let r = request.url.flatMap { url in Self.lock.withLock { Self.responses[url] } } ?? Response(status: 404, body: Data())
         let http = HTTPURLResponse(url: request.url!, statusCode: r.status, httpVersion: nil, headerFields: r.headers)!
+        if (300...399).contains(r.status), let location = r.headers["Location"].flatMap(URL.init(string:)) {
+            client?.urlProtocol(self, wasRedirectedTo: URLRequest(url: location), redirectResponse: http)
+            // If the task delegate declines the redirect, the 3xx itself is the final response.
+        }
         client?.urlProtocol(self, didReceive: http, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: r.body)
         client?.urlProtocolDidFinishLoading(self)

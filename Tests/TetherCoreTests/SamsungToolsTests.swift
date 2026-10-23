@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import Testing
 @testable import TetherCore
@@ -15,11 +16,13 @@ struct SamsungToolsTests {
 
     func home() -> URL { FileManager.default.temporaryDirectory.appendingPathComponent("samsung-\(UUID().uuidString)") }
 
-    func tools(script: String, status: Int = 200, home: URL? = nil) -> (SamsungTools, URL, URL) {
+    static func digest(_ text: String) -> String { SHA256.hash(data: Data(text.utf8)).map { String(format: "%02x", $0) }.joined() }
+
+    func tools(script: String, status: Int = 200, home: URL? = nil, pin: String? = nil) -> (SamsungTools, URL, URL) {
         let url = URL(string: "https://download.example.test/\(UUID().uuidString)/installer.bin")!
         StubURLProtocol.stub(url, .init(status: status, body: Data(script.utf8)))
         let h = home ?? self.home()
-        return (SamsungTools(home: h, session: StubURLProtocol.session, installerURL: url), h, url)
+        return (SamsungTools(home: h, session: StubURLProtocol.session, installerURL: url, expectedSHA256: pin ?? Self.digest(script)), h, url)
     }
 
     @Test func refusesWithoutLicense() async throws {
@@ -29,7 +32,7 @@ struct SamsungToolsTests {
     }
 
     @Test func refusesPlainHTTP() async throws {
-        let t = SamsungTools(home: home(), session: StubURLProtocol.session, installerURL: URL(string: "http://download.example.test/i.bin")!)
+        let t = SamsungTools(home: home(), session: StubURLProtocol.session, installerURL: URL(string: "http://download.example.test/i.bin")!, expectedSHA256: "x")
         await #expect(throws: SamsungToolsError.insecureURL) { try await t.install(acceptingLicense: true) { _ in } }
     }
 
@@ -67,5 +70,35 @@ struct SamsungToolsTests {
         #expect(!t.isInstalled)   // marker blocks use even though sdb exists
         try await t.install(acceptingLicense: true) { _ in }
         #expect(t.isInstalled && !FileManager.default.fileExists(atPath: stale.appendingPathComponent("leftover.txt").path))
+    }
+
+    @Test func aDownloadThatDoesNotMatchThePinIsNeverRun() async throws {
+        let marker = FileManager.default.temporaryDirectory.appendingPathComponent("ran-\(UUID().uuidString)")
+        let (t, h, _) = tools(script: "#!/bin/bash\ntouch '\(marker.path)'\n", pin: String(repeating: "0", count: 64))
+        await #expect(throws: SamsungToolsError.checksumMismatch) { try await t.install(acceptingLicense: true) { _ in } }
+        #expect(!FileManager.default.fileExists(atPath: marker.path) && !t.isInstalled)
+        #expect(!FileManager.default.fileExists(atPath: h.appendingPathComponent("tizen-studio").path))
+    }
+
+    @Test func redirectsToPlainHTTPOrAnotherHostAreRefused() async throws {
+        for target in ["http://download.example.test/evil.bin", "https://elsewhere.example.test/evil.bin"] {
+            let evil = URL(string: target)!
+            StubURLProtocol.stub(evil, .init(status: 200, body: Data(Self.goodInstaller.utf8)))
+            let start = URL(string: "https://download.example.test/\(UUID().uuidString)/installer.bin")!
+            StubURLProtocol.stub(start, .init(status: 302, body: Data(), headers: ["Location": target]))
+            let t = SamsungTools(home: home(), session: StubURLProtocol.session, installerURL: start, expectedSHA256: Self.digest(Self.goodInstaller))
+            await #expect(throws: SamsungToolsError.downloadFailed(status: 302)) { try await t.install(acceptingLicense: true) { _ in } }
+            #expect(!t.isInstalled)
+        }
+    }
+
+    @Test func aSameHostHTTPSRedirectIsFollowed() async throws {
+        let final = URL(string: "https://download.example.test/\(UUID().uuidString)/real.bin")!
+        StubURLProtocol.stub(final, .init(status: 200, body: Data(Self.goodInstaller.utf8)))
+        let start = URL(string: "https://download.example.test/\(UUID().uuidString)/installer.bin")!
+        StubURLProtocol.stub(start, .init(status: 302, body: Data(), headers: ["Location": final.absoluteString]))
+        let t = SamsungTools(home: home(), session: StubURLProtocol.session, installerURL: start, expectedSHA256: Self.digest(Self.goodInstaller))
+        try await t.install(acceptingLicense: true) { _ in }
+        #expect(t.isInstalled)
     }
 }
