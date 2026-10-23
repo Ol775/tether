@@ -28,16 +28,24 @@ public actor TizenManager {
 
     public func connect(host: String, port: Int = 26101) async throws {
         let target = try DeviceManager.endpoint(host, port)
-        let out = try await sdb.run(["connect", target])
-        // sdb connect can exit 0 and still say it failed; the verdict is in the text.
-        guard out.contains("connected to"), !out.contains("failed") else { throw SDBError.classify(code: 1, output: out) }
-        // Developer Mode off, a wrong host IP on the TV or a blocked model can all still print "connected": require the TV
-        // to be listed as ready and to tell us what it is.
-        guard let listed = TizenParsers.devices(try await sdb.run(["devices"])).first(where: { $0.serial == target }) else { throw SDBError.notConnected }
+        var connectOutput = ""
+        var connectError: (any Error)?
+        do { connectOutput = try await sdb.run(["connect", target]) }
+        catch { connectError = error }
+        // Some retail TVs register successfully while `sdb connect` still prints a failure (or exits nonzero).
+        // Only a ready device plus a readable profile confirms the session.
+        let devices: [(serial: String, state: String, model: String?)]
+        do { devices = TizenParsers.devices(try await sdb.run(["devices"])) }
+        catch { throw connectError ?? error }
+        guard let listed = devices.first(where: { $0.serial == target }) else {
+            if let connectError { throw connectError }
+            if !connectOutput.contains("connected to") || connectOutput.contains("failed") {
+                throw SDBError.classify(code: 1, output: connectOutput)
+            }
+            throw SDBError.notConnected
+        }
         guard listed.state == "device" else { throw listed.state == "unauthorized" ? SDBError.developerModeOff : SDBError.notConnected }
-        let capability = TizenParsers.capability(try await sdb.run(["capability"], serial: target))
-        guard capability["model_name"] != nil else { throw SDBError.commandFailed(code: 0, output: "The TV connected but didn't report its model.") }
-        let device = TizenParsers.device(serial: target, capability: capability)
+        let device = try await profile(serial: target, listedModel: listed.model)
         if let year = device.modelYear, year < Self.oldestSupportedYear {
             _ = try? await sdb.run(["disconnect", target])
             throw TizenError.unsupportedModel(year: year)
@@ -52,13 +60,30 @@ public actor TizenManager {
     public func devices() async throws -> [TizenDevice] {
         var result: [TizenDevice] = []
         for d in TizenParsers.devices(try await sdb.run(["devices"])) where d.state == "device" {
-            let device = try await profile(serial: d.serial)
+            let device = try await profile(serial: d.serial, listedModel: d.model)
             if (device.modelYear ?? Self.oldestSupportedYear) >= Self.oldestSupportedYear { result.append(device) }
         }
         return result
     }
 
     public func profile(serial: String) async throws -> TizenDevice {
-        TizenParsers.device(serial: serial, capability: TizenParsers.capability(try await sdb.run(["capability"], serial: serial)))
+        let listed = TizenParsers.devices(try await sdb.run(["devices"]))
+            .first { $0.serial == serial && $0.state == "device" }
+        return try await profile(serial: serial, listedModel: listed?.model)
+    }
+
+    private func profile(serial: String, listedModel: String?) async throws -> TizenDevice {
+        var capability = TizenParsers.capability(try await sdb.run(["capability"], serial: serial))
+        guard !capability.isEmpty else {
+            throw SDBError.commandFailed(code: 0, output: "The TV connected but didn't report its capabilities.")
+        }
+        // Retail TVs can report the model only in `sdb devices`, not in `sdb capability`.
+        if capability["model_name", default: ""].isEmpty, let listedModel {
+            capability["model_name"] = listedModel
+        }
+        guard !capability["model_name", default: ""].isEmpty else {
+            throw SDBError.commandFailed(code: 0, output: "The TV connected but didn't report its model.")
+        }
+        return TizenParsers.device(serial: serial, capability: capability)
     }
 }

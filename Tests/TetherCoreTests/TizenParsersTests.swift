@@ -3,7 +3,7 @@ import Testing
 @testable import TetherCore
 
 struct TizenParsersTests {
-    @Test(arguments: [("QN65Q80TAFXZA", 2020), ("UE50RU7100", 2019), ("QE55Q80BAT", 2022), ("UN55NU8000", 2018), ("QE55Q80AAT", 2021), ("QE65QN90CATXXU", 2023)])
+    @Test(arguments: [("QN65Q80TAFXZA", 2020), ("UE50RU7100", 2019), ("UE50RU7100KXXU", 2019), ("UE43AU9007KXXU", 2021), ("UN55NU8000FXZA", 2018), ("QE55Q80BAT", 2022), ("UN55NU8000", 2018), ("QE55Q80AAT", 2021), ("QE65QN90CATXXU", 2023)])
     func yearFromModelCode(code: String, year: Int) {
         #expect(TizenParsers.modelYear(fromModelCode: code) == year)
     }
@@ -17,6 +17,8 @@ struct TizenParsersTests {
         let list = TizenParsers.devices(fixture("sdb-devices.txt"))
         #expect(list.map(\.serial) == ["192.168.1.60:26101", "192.168.1.61:26101", "192.168.1.62:26101"])
         #expect(list.map(\.state) == ["device", "offline", "unauthorized"])
+        #expect(list.map(\.model) == ["QE55Q80AAT", "UE50RU7100", "X"])
+        #expect(TizenParsers.devices("192.168.1.60:26101 device").first?.model == nil)
     }
 
     @Test func deviceIDPrefersDUIDOverSerial() {

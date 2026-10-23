@@ -93,6 +93,13 @@ extension AppModel {
         }
     }
 
+    func refreshTizenCertificate() async {
+        guard let tv = selectedTizen else { return }
+        let state = await certificates.state(for: tv)
+        guard selectedTizen?.serial == tv.serial else { return }
+        certificateState = state
+    }
+
     // MARK: - remembered locks
 
     private func rememberLocked(_ ids: [TizenAppID], on tv: TizenDevice) {

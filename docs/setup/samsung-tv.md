@@ -24,14 +24,22 @@ Samsung TVs talk `sdb`, not `adb`, and the TV has to be put into Developer Mode 
 - A TV with no DUID that gets a new IP address looks like a new TV: its restore points and remembered locks stay under the old address.
 - Rooting, firmware changes or defeating Samsung's locks are out of scope.
 - TVs from before 2019 are refused.
-- Some 2023+ models are reported to refuse `sdb` connections even with Developer Mode on. If Connect says the TV
-  refused, that is the TV, not the network.
+- An open port 26101 confirms TCP reachability, but not a working SDB session. A generic “failed to connect” message
+  alone does not identify the cause. Confirm the Host PC IP and fully restart the TV before retrying.
 - There is no raw shell for TVs in this release; most TVs report the shell as disabled.
 
 ## Certificates
 
-Installing needs a Samsung certificate that includes this TV's DUID, created in Samsung's Certificate Manager (part of
-Tizen Studio; a command-line-only install may not include it, in which case install Samsung's certificate extension
-through Tizen's package manager or Tizen Studio). Tether shows **Certificate ready**, **missing**, **not for this TV** or **can't tell** on the
-Overview and Apps screens. Whether certificate creation can be scripted without Samsung's sign-in is unresolved and
-tracked in [tizen-device-checklist.md](../tizen-device-checklist.md).
+Installing a package needs a valid Samsung signature covering this TV. In Tether, open **Certificate setup…** from
+Overview or Apps. **Open Certificate Manager** creates a Samsung → TV profile or imports existing `.p12` certificates;
+add the connected TV in its distributor step. If Certificate Manager is missing, use **Open Package Manager** to install
+Certificate Manager and Samsung Certificate Extension. Samsung account sign-in and certificate creation stay in Samsung’s tools.
+
+If you already have a signing profile, choose its **profiles.xml** file in Tether, then **Refresh status**. Tether configures
+Samsung’s CLI to use that profile; it does not copy your private keys or passwords. Selecting a profile does not re-sign
+an existing `.wgt`: sign the package with the profile in Samsung’s tools before installing it. A profile being available
+also does not prove it covers this TV; Samsung verifies the package signature during installation.
+
+The CLI is launched through its bundled Java entry point so SDK paths such as macOS Application Support work correctly.
+Tool failures are reported separately from missing profiles. Certificate setup is separate from connecting to the TV or
+listing apps; those actions do not need a signing certificate.

@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Added Samsung certificate setup, selecting existing profiles and refreshing status; fixed the CLI launcher when the SDK path contains spaces.
+
+- Redesigned the Mac app icon with a silver and blue interlocking connection mark.
+
+- Fixed Samsung connections when a retail TV reports its model only in the device list, and when SDB reports failure despite a ready device.
+- Corrected UHD model-year parsing for full regional model codes and clarified SDB connection errors.
+
 ## 0.1.1 (2026-10-23)
 
 - Reworked Add Device with scrollable setup instructions, labelled fields and persistent connection actions.

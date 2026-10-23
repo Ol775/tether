@@ -30,11 +30,7 @@ struct TizenOverviewView: View {
                     .padding(16).frame(maxWidth: .infinity, alignment: .leading)
                     .background(.quaternary.opacity(0.4), in: .rect(cornerRadius: 12))
 
-                    if let state = model.certificateState {
-                        Label(state.advice, systemImage: state == .ready ? "checkmark.seal" : "exclamationmark.triangle")
-                            .foregroundStyle(state == .ready ? Color.green : Color.orange)
-                            .font(.callout)
-                    }
+                    CertificateStatusView()
                     Text("A restore point is saved automatically before every change.").font(.callout).foregroundStyle(.secondary)
                 }
                 .padding(28)

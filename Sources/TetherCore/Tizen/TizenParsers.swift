@@ -3,11 +3,11 @@ import Foundation
 /// Parsers for `sdb` output. Formats for `capability` and `applist` are assumed from community reports
 /// (see the fixtures) and are tolerant: lines that don't fit are dropped, never guessed at.
 public enum TizenParsers {
-    public static func devices(_ text: String) -> [(serial: String, state: String)] {
+    public static func devices(_ text: String) -> [(serial: String, state: String, model: String?)] {
         text.split(whereSeparator: \.isNewline).compactMap { line in
             let parts = line.split(whereSeparator: { $0 == "\t" || $0 == " " })
             guard parts.count >= 2, !line.hasPrefix("List of devices"), parts[0].contains(":") else { return nil }
-            return (String(parts[0]), String(parts[1]))
+            return (String(parts[0]), String(parts[1]), parts.count > 2 ? String(parts[2]) : nil)
         }
     }
 
@@ -44,7 +44,9 @@ public enum TizenParsers {
     /// Samsung model codes carry a year letter: `QE55Q80AAT` → A (2021), `UE50RU7100` → R (2019).
     public static func modelYear(fromModelCode code: String) -> Int? {
         guard let m = code.firstMatch(of: #/^[A-Z]{2}\d{2}([A-Z]{1,2})(\d+)?(.*)$/#) else { return nil }
-        let letter = m.3.first ?? m.1.first
+        // UHD series put the year before the digits (AU9007); QLED puts it after (Q80A).
+        // Region/tuner suffixes such as KXXU and FXZA are not year codes.
+        let letter = m.1.hasSuffix("U") ? m.1.first : (m.3.first ?? m.1.first)
         return letter.flatMap { yearByLetter[$0] }
     }
 

@@ -22,7 +22,8 @@ drop() { grep -vxF -- "$2" "$D/$1" > "$D/$1.tmp" 2>/dev/null; mv "$D/$1.tmp" "$D
 cmd=${1:-}; shift
 case "$cmd" in
   devices) echo "List of devices attached"; list devices.txt ;;
-  connect) if [[ -f $D/connect_result ]]; then cat "$D/connect_result"; else echo "connecting to $1 ..."; echo "connected to $1"; fi ;;
+  connect) if [[ -f $D/connect_result ]]; then cat "$D/connect_result"; else echo "connecting to $1 ..."; echo "connected to $1"; fi
+    if [[ -f $D/connect_exit ]]; then exit "$(cat "$D/connect_exit")"; fi ;;
   disconnect) echo "disconnected $1" ;;
   capability) list capability.txt ;;
   install)

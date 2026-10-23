@@ -14,9 +14,47 @@ struct TizenManagerTests {
         #expect(fake.calls().first == "connect 192.168.1.60:26101")
     }
 
+    @Test func retailTVModelComesFromDeviceListing() async throws {
+        let (_, manager) = try rig([
+            "devices.txt": "192.168.1.60:26101  \tdevice    \tUE43AU9007KXXU\n",
+            "capability.txt": fixture("sdb-capability-retail-2021.txt"),
+        ])
+        try await manager.connect(host: "192.168.1.60")
+        let devices = try await manager.devices()
+        #expect(devices.count == 1)
+        #expect(devices.first?.model == "UE43AU9007KXXU")
+        #expect(devices.first?.modelYear == 2021)
+        #expect(devices.first?.tizenVersion == "6.0")
+        let profile = try await manager.profile(serial: "192.168.1.60:26101")
+        #expect(profile == devices.first)
+    }
+
+    @Test func listingFallbackStillRejectsUnsupportedTV() async throws {
+        let (fake, manager) = try rig([
+            "devices.txt": "192.168.1.60:26101\tdevice\tUN55NU8000\n",
+            "capability.txt": fixture("sdb-capability-retail-2021.txt"),
+        ])
+        await #expect(throws: TizenError.unsupportedModel(year: 2018)) {
+            try await manager.connect(host: "192.168.1.60")
+        }
+        #expect(fake.calls().contains("disconnect 192.168.1.60:26101"))
+        #expect(try await manager.devices().isEmpty)
+    }
+
     @Test func connectFailureTextBecomesRefusedEvenWithExitZero() async throws {
-        let (_, m) = try rig(["connect_result": "failed to connect to remote target 192.168.1.60:26101\n"])
+        let (_, m) = try rig(["connect_result": "failed to connect to remote target 192.168.1.60:26101\n", "devices.txt": ""])
         await #expect(throws: SDBError.refused) { try await m.connect(host: "192.168.1.60") }
+    }
+
+    @Test(arguments: ["0", "1"])
+    func readyRetailTVWinsOverMisleadingConnectFailure(exitStatus: String) async throws {
+        let (_, manager) = try rig([
+            "connect_result": "error: failed to connect to remote target '192.168.1.60'\n",
+            "connect_exit": exitStatus,
+            "devices.txt": "192.168.1.60:26101\tdevice\tUE43AU9007KXXU\n",
+            "capability.txt": fixture("sdb-capability-retail-2021.txt"),
+        ])
+        try await manager.connect(host: "192.168.1.60")
     }
 
     @Test func alreadyConnectedCounts() async throws {

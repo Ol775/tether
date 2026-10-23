@@ -48,6 +48,31 @@ public actor SamsungTools {
 
     public nonisolated var sdb: URL? { executable("tools/sdb") }
     public nonisolated var tizenCLI: URL? { executable("tools/ide/bin/tizen") }
+    public nonisolated var certificateManager: URL? {
+        let app = root.appendingPathComponent("tools/certificate-manager/Certificate-manager.app")
+        return Bundle(url: app)?.executableURL != nil ? app : nil
+    }
+    /// The GUI wrapper has the same unquoted-Java-path bug as the CLI launcher.
+    public nonisolated func startPackageManager() throws -> Process {
+        let java = root.appendingPathComponent("jdk/Contents/Home/bin/java")
+        let directory = root.appendingPathComponent("package-manager")
+        let jar = directory.appendingPathComponent("PackageManagerV2.jar")
+        guard FileManager.default.isExecutableFile(atPath: java.path),
+              FileManager.default.fileExists(atPath: jar.path) else { throw CocoaError(.fileNoSuchFile) }
+        let process = Process()
+        process.executableURL = java
+        process.arguments = ["-XX:+IgnoreUnrecognizedVMOptions", "-XstartOnFirstThread", "-jar", jar.path, "-path", directory.path]
+        process.currentDirectoryURL = directory
+        let logURL = home.appendingPathComponent("package-manager-launch.log")
+        FileManager.default.createFile(atPath: logURL.path, contents: nil)
+        let log = try FileHandle(forWritingTo: logURL)
+        process.standardOutput = log
+        process.standardError = log
+        process.standardInput = FileHandle.nullDevice
+        process.terminationHandler = { _ in try? log.close() }
+        try process.run()
+        return process
+    }
     /// A leftover marker means an earlier run never finished, so nothing under the folder is trusted.
     public nonisolated var isInstalled: Bool { !FileManager.default.fileExists(atPath: marker.path) && sdb != nil && tizenCLI != nil }
 

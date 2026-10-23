@@ -7,7 +7,7 @@ public enum ProcessRunnerError: Error, Equatable, Sendable {
 /// Runs a child process with output captured via temp files (so a chatty child can never fill a pipe and
 /// deadlock us), kills it on timeout or cancellation, and returns what it printed.
 enum ProcessRunner {
-    static func run(_ exe: URL, _ args: [String], timeout: Duration) async throws -> (status: Int32, out: String, err: String) {
+    static func run(_ exe: URL, _ args: [String], timeout: Duration, currentDirectory: URL? = nil) async throws -> (status: Int32, out: String, err: String) {
         let tmp = FileManager.default.temporaryDirectory
         let outURL = tmp.appendingPathComponent("tether-\(UUID().uuidString).out")
         let errURL = tmp.appendingPathComponent("tether-\(UUID().uuidString).err")
@@ -22,6 +22,7 @@ enum ProcessRunner {
         let process = Process()
         process.executableURL = exe
         process.arguments = args
+        process.currentDirectoryURL = currentDirectory
         process.standardOutput = outH
         process.standardError = errH
         process.standardInput = FileHandle.nullDevice

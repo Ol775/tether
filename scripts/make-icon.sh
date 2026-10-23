@@ -1,11 +1,15 @@
 #!/bin/bash
-# Render assets/icon.svg into assets/AppIcon.icns (+ docs/images/logo.png).
+# Build the native macOS icon and README logo from the full-resolution PNG master.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-SET=$(mktemp -d)/AppIcon.iconset; mkdir -p "$SET"
-for s in 16 32 128 256 512; do
-  rsvg-convert -w $s -h $s assets/icon.svg -o "$SET/icon_${s}x${s}.png"
-  rsvg-convert -w $((s*2)) -h $((s*2)) assets/icon.svg -o "$SET/icon_${s}x${s}@2x.png"
+ICON_TMP=$(mktemp -d)
+trap 'rm -rf "$ICON_TMP"' EXIT
+ICON_SET="$ICON_TMP/AppIcon.iconset"
+mkdir -p "$ICON_SET"
+for size in 16 32 128 256 512; do
+  sips -s format png -z "$size" "$size" assets/icon.png --out "$ICON_SET/icon_${size}x${size}.png" >/dev/null
+  retina=$((size * 2))
+  sips -s format png -z "$retina" "$retina" assets/icon.png --out "$ICON_SET/icon_${size}x${size}@2x.png" >/dev/null
 done
-iconutil -c icns "$SET" -o assets/AppIcon.icns
-rsvg-convert -w 512 -h 512 assets/icon.svg -o docs/images/logo.png
+swift scripts/assemble-icon.swift "$ICON_SET" assets/AppIcon.icns
+sips -s format png -z 512 512 assets/icon.png --out docs/images/logo.png >/dev/null

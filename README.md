@@ -17,7 +17,7 @@ a file. Built with SwiftUI and Liquid Glass for macOS 26+.
 > (see [LICENSE](LICENSE)).
 
 > **Status: pre-release.** The core is covered by automated tests against a scripted fake `adb`,
-> but it has **not yet been run on real hardware**. Work through
+> and Samsung connection/app listing have been checked on a UE43AU9007KXXU (2021, Tizen 6.0). Device modifications still need real-hardware verification. Work through
 > [docs/device-checklist.md](docs/device-checklist.md) (and [docs/tizen-device-checklist.md](docs/tizen-device-checklist.md)
 > for Samsung TVs) before trusting it with a device you care about.
 
@@ -35,7 +35,7 @@ a file. Built with SwiftUI and Liquid Glass for macOS 26+.
 - **Apps:** drop an `.apk`, or paste a GitHub repository to install its latest release (ABI-matched,
   size- and checksum-verified).
 - **Console:** raw `adb shell` with a guard: read-only commands run, everything else asks first.
-- **Samsung TVs (Tizen, 2019+)** over `sdb` (**untested on a real TV so far**): list apps, remove what the TV allows (locked apps are shown as locked),
+- **Samsung TVs (Tizen, 2019+)** over `sdb` (**connection and app listing verified on one 2021 TV; modifications still unverified**): list apps, remove what the TV allows (locked apps are shown as locked),
   install signed `.wgt` packages, restore points and revert. Samsung's tools are downloaded on first use after you
   accept their licence; they are never bundled. See [Samsung TV setup](docs/setup/samsung-tv.md).
 
@@ -56,7 +56,7 @@ The app is ad-hoc signed, not notarised. On first launch macOS may refuse it: ri
 or run `xattr -dr com.apple.quarantine build/Tether.app`. `adb` is fetched at build time from
 `dl.google.com` and checked against a pinned SHA-256; it is never committed to this repository.
 
-`swift test` runs the suite (about 25 s). The app icon is rendered from `assets/icon.svg` by `./scripts/make-icon.sh`. `./scripts/screenshots.sh` rebuilds the screenshots against a demo device and
+`swift test` runs the suite (about 25 s). The app icon is rendered from `assets/icon.png` by `./scripts/make-icon.sh`. `./scripts/screenshots.sh` rebuilds the screenshots against a demo device and
 doubles as a launch smoke test; `demo/run.sh` opens the app on that demo device without touching real data.
 
 ## Updates

@@ -148,7 +148,7 @@ public actor TizenChangeEngine {
         }
         if missing {
             guard let cli = tizenCLI else { throw SDBError.toolsMissing }
-            let r = try await ProcessRunner.run(cli, ["uninstall", "-p", id.value, "-t", device.serial], timeout: .seconds(60))
+            let r = try await TizenCLI.run(cli, ["uninstall", "-p", id.value, "-t", device.serial], timeout: .seconds(60))
             guard r.status == 0 else { throw SDBError.classify(code: r.status, output: r.err + r.out) }
         }
     }

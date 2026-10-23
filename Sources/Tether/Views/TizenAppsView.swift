@@ -10,15 +10,11 @@ struct TizenAppsView: View {
 
     private static let types = ["wgt", "tpk"].compactMap { UTType(filenameExtension: $0) }
 
-    private var blocked: Bool { model.certificateState.map { $0 == .missing || $0 == .notForThisTV || $0 == .toolsMissing } ?? false }
-
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 Text("Install an app").font(.headline)
-                if let state = model.certificateState, state != .ready {
-                    Label(state.advice, systemImage: "exclamationmark.triangle").font(.callout).foregroundStyle(.orange)
-                }
+                CertificateStatusView()
                 HStack(spacing: 12) {
                     Image(systemName: "arrow.down.app").font(.title2).foregroundStyle(.secondary)
                     Text("Drop a signed .wgt or .tpk here").foregroundStyle(.secondary)

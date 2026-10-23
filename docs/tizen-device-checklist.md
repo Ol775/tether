@@ -2,12 +2,21 @@
 
 The automated suite uses a scripted `sdb`; these need a real Samsung TV. Note the model and year with each result.
 
+## Verified hardware
+
+2026-10-23, Samsung UE43AU9007KXXU (2021), Tizen 6.0: Developer Mode and the Host PC IP were confirmed;
+connection and reading the list of 405 apps succeeded. The retail capability response omits `model_name`, so the
+model must also be read from `sdb devices`. SDB sometimes reports a connection failure even while the device list
+shows the TV as ready. Fixtures and regression tests cover both observations. Install, removal and restore have
+not been tested on this TV.
+
 ## Connect
 - [ ] Developer Mode on, Mac's IP entered, TV restarted; **Add device → Samsung TV** shows this Mac's IP.
 - [ ] **Set up Samsung tools** downloads and verifies the installer, runs it, and `sdb` exists afterwards
       (`~/Library/Application Support/Tether/samsung/tizen-studio/tools/sdb`). Confirm the package-manager step
       (`cert-add-on`) is the right package name.
-- [ ] Connect on port 26101. A 2023+ model that refuses is reported as refused, not as connected.
+- [x] Connect on port 26101 (verified on the 2021 model above).
+- [ ] Verify failed connections on other models remain failures unless a ready SDB device and readable profile confirm the session.
 - [ ] A pre-2019 TV is refused with a clear message.
 - [ ] The `capability` output matches `Tests/TetherCoreTests/Fixtures/sdb-capability-*.txt`; if not, fix the parser and fixtures.
 
