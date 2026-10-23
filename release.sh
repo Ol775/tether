@@ -3,7 +3,7 @@
 # (zip + .sha256 + .sig2). Run after bumping VERSION and CHANGELOG.md, committing and pushing (see RELEASING.md).
 # Usage: ./release.sh [--dry-run]   --dry-run runs every check and builds and signs the zip, but publishes nothing.
 # The signing key (never committed, back it up!) lives at ~/.config/tether/signing.key; its public half is built into the app.
-set -e
+set -eo pipefail
 cd "$(dirname "$0")"
 ver=$(cat VERSION)
 dry=0; [ "$1" = "--dry-run" ] && dry=1
@@ -19,7 +19,14 @@ key="${SIGNING_KEY:-$HOME/.config/tether/signing.key}"
 [ -z "$(git status --porcelain)" ] || { echo "Commit your changes first."; exit 1; }
 git fetch -q origin main; [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || { echo "Push main first."; exit 1; }
 gh release view "v$ver" --repo Ol775/tether >/dev/null 2>&1 && { echo "v$ver is already released. Bump VERSION."; exit 1; }
-swift test 2>&1 | tail -1 | grep -q "passed" || { echo "The test suite doesn't pass."; exit 1; }
+mkdir -p build
+echo "Running the test suite (log: build/release-tests.log)…"
+if swift test 2>&1 | tee build/release-tests.log; then
+  echo "Test suite passed. Building the release…"
+else
+  echo "The test suite failed. Full output is saved in build/release-tests.log."
+  exit 1
+fi
 mkdir -p build dist && swiftc -O scripts/sign-tool.swift -o build/sign-tool 2>/dev/null
 pub=$(build/sign-tool public "$key")
 [ "$pub" = "$(grep -o 'publicKey = "[^"]*"' Sources/TetherCore/Update/Updater.swift | cut -d'"' -f2)" ] || { echo "The signing key doesn't match the public key built into the app."; exit 1; }
