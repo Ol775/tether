@@ -48,6 +48,13 @@ public enum Parsers {
         return result
     }
 
+    /// `wm density` prints an "Override density" line only when the user has changed it.
+    public static func densityOverride(_ output: String) -> Int? {
+        output.split(whereSeparator: \.isNewline)
+            .first { $0.hasPrefix("Override density:") }
+            .flatMap { Int($0.dropFirst("Override density:".count).trimmingCharacters(in: .whitespaces)) }
+    }
+
     private static func names(_ output: String) -> Set<PackageName> {
         Set(output.split(whereSeparator: \.isNewline).compactMap { line in
             line.hasPrefix("package:") ? PackageName(String(line.dropFirst(8))) : nil
