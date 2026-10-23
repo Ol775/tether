@@ -69,6 +69,7 @@ case "$cmd" in
         echo "Physical density: 320"; [[ -f $D/density.txt ]] && echo "Override density: $(cat "$D/density.txt")"; true ;;
       wm\ density\ reset) mutating; rm -f "$D/density.txt" ;;
       wm\ density\ *) mutating; echo "$3" > "$D/density.txt" ;;
+      rm\ *) : ;;
       *) echo "fake-adb: unhandled shell: $*" >&2; exit 1 ;;
     esac ;;
   *) echo "fake-adb: unhandled: $cmd $*" >&2; exit 1 ;;
