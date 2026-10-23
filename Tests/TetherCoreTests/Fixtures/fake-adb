@@ -1,0 +1,67 @@
+#!/bin/bash
+# Scripted stand-in for adb. State files live beside this script (override: FAKE_ADB_DIR).
+D=${FAKE_ADB_DIR:-$(cd "$(dirname "$0")" && pwd)}
+echo "$*" >> "$D/calls.log"
+while [[ "${1:-}" == -P || "${1:-}" == -s ]]; do shift 2; done
+
+[[ -f $D/sleep ]] && sleep "$(cat "$D/sleep")"
+if [[ -f $D/force_error ]]; then cat "$D/force_error" >&2; exit 1; fi
+
+fail_offline() { echo "error: device offline" >&2; exit 1; }
+# FAKE_ADB_FAIL_AFTER / fail_after file: mutating call n+1 goes offline.
+mutating() {
+  local n; n=$(( $(cat "$D/mutations" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$D/mutations"
+  local limit=${FAKE_ADB_FAIL_AFTER:-$(cat "$D/fail_after" 2>/dev/null)}
+  [[ -n $limit && $n -gt $limit ]] && fail_offline
+  return 0
+}
+list() { [[ -f $D/$1 ]] && cat "$D/$1"; return 0; }
+has() { grep -qxF -- "$2" "$D/$1" 2>/dev/null; }
+drop() { grep -vxF -- "$2" "$D/$1" > "$D/$1.tmp" 2>/dev/null; mv "$D/$1.tmp" "$D/$1"; }
+
+cmd=${1:-}; shift
+case "$cmd" in
+  devices) echo "List of devices attached"; list devices.txt ;;
+  connect) if [[ -f $D/connect_result ]]; then cat "$D/connect_result"; else echo "connected to $1"; fi ;;
+  pair) if [[ -f $D/pair_result ]]; then cat "$D/pair_result"; else echo "Successfully paired to $1 [guid=fake]"; fi ;;
+  disconnect) echo "disconnected $1" ;;
+  pull) if [[ -f $D/pull_empty ]]; then : > "$2"; else echo apk > "$2"; fi ;;
+  install) mutating; echo "$*" >> "$D/installs.log"; echo Success ;;
+  shell)
+    set -- $*   # adb joins shell args
+    case "$*" in
+      "getprop")
+        while IFS== read -r k v; do [[ -n $k ]] && echo "[$k]: [$v]"; done < "$D/props.txt" ;;
+      getprop\ *) grep -m1 "^$2=" "$D/props.txt" 2>/dev/null | cut -d= -f2- ;;
+      pm\ list\ packages*)
+        file=packages_installed.txt
+        [[ " $* " == *" -u "* ]] && file=packages_all.txt
+        [[ " $* " == *" -d "* ]] && file=packages_disabled.txt
+        while read -r p; do [[ -n $p ]] && echo "package:$p"; done < <(list $file) ;;
+      pm\ path\ *)
+        has packages_installed.txt "$3" || exit 1
+        echo "package:/data/app/$3/base.apk"; [[ -f $D/split_$3 ]] && cat "$D/split_$3"; true ;;
+      pm\ uninstall\ -k\ --user\ 0\ *)
+        mutating
+        if has packages_installed.txt "$6"; then drop packages_installed.txt "$6"; echo Success
+        else echo "Failure [not installed for 0]"; exit 1; fi ;;
+      cmd\ package\ install-existing\ --user\ 0\ *)
+        mutating
+        if has packages_all.txt "$6"; then echo "$6" >> "$D/packages_installed.txt"; echo "Package $6 installed for user: 0"
+        else echo "Failure [not found]"; exit 1; fi ;;
+      settings\ list\ *) list "settings_$3.txt" ;;
+      settings\ get\ *) grep -m1 "^$4=" "$D/settings_$3.txt" 2>/dev/null | cut -d= -f2- || true ;;
+      settings\ put\ *)
+        mutating
+        grep -v "^$4=" "$D/settings_$3.txt" > "$D/s.tmp" 2>/dev/null; echo "$4=${*:5}" >> "$D/s.tmp"; mv "$D/s.tmp" "$D/settings_$3.txt" ;;
+      settings\ delete\ *)
+        mutating
+        grep -v "^$4=" "$D/settings_$3.txt" > "$D/s.tmp" 2>/dev/null; mv "$D/s.tmp" "$D/settings_$3.txt" ;;
+      wm\ density)
+        echo "Physical density: 320"; [[ -f $D/density.txt ]] && echo "Override density: $(cat "$D/density.txt")"; true ;;
+      wm\ density\ reset) mutating; rm -f "$D/density.txt" ;;
+      wm\ density\ *) mutating; echo "$3" > "$D/density.txt" ;;
+      *) echo "fake-adb: unhandled shell: $*" >&2; exit 1 ;;
+    esac ;;
+  *) echo "fake-adb: unhandled: $cmd $*" >&2; exit 1 ;;
+esac
