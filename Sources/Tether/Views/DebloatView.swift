@@ -113,7 +113,7 @@ struct DebloatView: View {
     }
 }
 
-private struct ActionBar: View {
+struct ActionBar: View {
     let count: Int
     let review: () -> Void
 

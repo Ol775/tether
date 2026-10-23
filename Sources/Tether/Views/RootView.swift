@@ -11,7 +11,7 @@ struct RootView: View {
                 .navigationSplitViewColumnWidth(min: 230, ideal: 260, max: 320)
         } detail: {
             DetailRouter()
-                .navigationTitle(model.selected.map { "\($0.model) · \(model.section.title)" } ?? "Tether")
+                .navigationTitle((model.selected?.model ?? model.selectedTizen?.model).map { "\($0) · \(model.section.title)" } ?? "Tether")
         }
         .inspector(isPresented: Binding(get: { model.showInspector && model.section == .debloat }, set: { model.showInspector = $0 })) {
             InspectorView().inspectorColumnWidth(min: 260, ideal: 320, max: 400)
@@ -30,6 +30,13 @@ struct RootView: View {
         .sheet(isPresented: $model.showPairing) { PairingSheet() }
         .sheet(isPresented: $model.showTizenSetup) { TizenSetupSheet() }
         .sheet(item: $model.reportToShow) { ReportSheet(box: $0) }
+        .sheet(item: $model.tizenReportToShow) { TizenReportSheet(box: $0) }
+        .confirmationDialog("This TV has a new address", isPresented: Binding(get: { model.tizenAddressChangeRevert != nil }, set: { if !$0 { model.tizenAddressChangeRevert = nil } }), titleVisibility: .visible, presenting: model.tizenAddressChangeRevert) { rp in
+            Button("Revert on \(model.selectedTizen?.model ?? "this TV")") { Task { await model.revertTizen(rp, addressChangeConfirmed: true) } }
+            Button("Cancel", role: .cancel) {}
+        } message: { rp in
+            Text("This restore point was saved at \(rp.device.serial); the TV is now at \(model.selectedTizen?.serial ?? "?"). Its hardware ID and model match. Only continue if it's the same TV.")
+        }
         .sheet(item: $model.pendingChoice, onDismiss: { model.pendingChoice?.resolve(nil) }) { request in
             VStack(alignment: .leading, spacing: 12) {
                 Text("Which file?").font(.title3.weight(.semibold))
@@ -65,14 +72,22 @@ struct DetailRouter: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        if model.selected == nil {
+        if model.selected == nil && model.selectedTizen == nil {
             ContentUnavailableView {
                 Label("No device connected", systemImage: "tv.slash")
             } description: {
-                Text("Turn on network debugging on your Fire TV or Android device, then add it.")
+                Text("Turn on network debugging on your Fire TV or Android device, or Developer Mode on a Samsung TV, then add it.")
             } actions: {
                 Button("Add device") { model.showPairing = true }
                     .buttonStyle(.glassProminent)
+            }
+        } else if model.selectedTizen != nil {
+            switch model.section {
+            case .overview: TizenOverviewView()
+            case .debloat: TizenDebloatView()
+            case .apps: TizenAppsView()
+            case .backups: TizenBackupsView()
+            default: ContentUnavailableView("Not available for TVs", systemImage: "tv", description: Text("This section is for Android and Fire OS devices."))
             }
         } else {
             switch model.section {
