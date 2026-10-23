@@ -10,7 +10,7 @@ struct TizenChangeEngineTests {
         let fake: FakeSDB, engine: TizenChangeEngine, store: TizenRestorePointStore, root: URL
         func apps() -> [String] { fake.lines("apps_list.txt") }
         func has(_ id: TizenAppID) -> Bool { apps().contains { $0.contains("'\(id.value)'") } }
-        func mutatingCalls() -> [String] { fake.calls().filter { $0.contains("vd_appuninstall") || $0.hasPrefix("install") } }
+        func mutatingCalls() -> [String] { fake.calls().filter { $0.contains("vd_appuninstall") || $0.contains("vd_appinstall") || $0.contains("push") } }
     }
 
     func rig(_ extra: [String: String] = [:], cli: URL? = nil, rootOverride: URL? = nil) throws -> Rig {
@@ -24,10 +24,27 @@ struct TizenChangeEngineTests {
         return Rig(fake: fake, engine: engine, store: store, root: root)
     }
 
+    /// A real signed-shaped `.wgt`: a zip whose `config.xml` declares a `tizen:application` id equal to
+    /// the file's base name, so the engine reads the same id the fake sdb registers.
     func wgt(_ name: String) throws -> URL {
+        let id = (name as NSString).deletingPathExtension
+        let src = FileManager.default.temporaryDirectory.appendingPathComponent("wgtsrc-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: src, withIntermediateDirectories: true)
+        let config = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <widget xmlns:tizen="http://tizen.org/ns/widgets" id="http://tether.test/\(id)">
+            <tizen:application id="\(id)" package="\(id)" required_version="2.3"/>
+            <content src="index.html"/>
+        </widget>
+        """
+        try config.write(to: src.appendingPathComponent("config.xml"), atomically: true, encoding: .utf8)
+        try "<html></html>".write(to: src.appendingPathComponent("index.html"), atomically: true, encoding: .utf8)
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("wgt-\(UUID().uuidString)").appendingPathComponent(name)
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try Data([1, 2, 3]).write(to: url)
+        let zip = Process()
+        zip.executableURL = URL(fileURLWithPath: "/usr/bin/zip")
+        zip.arguments = ["-j", "-q", url.path, src.appendingPathComponent("config.xml").path, src.appendingPathComponent("index.html").path]
+        try zip.run(); zip.waitUntilExit()
         return url
     }
 
@@ -149,9 +166,8 @@ struct TizenChangeEngineTests {
 
     // MARK: installSigned
 
-    /// Fake `tizen` CLI: logs its arguments. `permitFail` makes install-permit fail; `force_install_failure`
-    /// (a marker file in the fake sdb dir, same switch the fake sdb script used) makes `install` fail instead
-    /// of updating the shared apps_list.txt that `relist()` reads back through the fake sdb.
+    /// Fake `tizen` CLI: logs its arguments and only serves `install-permit` now that the engine installs
+    /// through sdb (`push` + `vd_appinstall`), not the CLI. `failing` makes the permit step fail.
     func permitCLI(_ r: Rig, failing: Bool = false) throws -> URL {
         let cli = FileManager.default.temporaryDirectory.appendingPathComponent("faketizen-\(UUID().uuidString)")
         let script = """
@@ -160,12 +176,6 @@ struct TizenChangeEngineTests {
         echo "$*" >> "$D/tizen.log"
         if [[ "$1" == install-permit ]]; then
         \(failing ? "echo 'permit denied' >&2; exit 1" : "exit 0")
-        elif [[ "$1" == install ]]; then
-          [[ -f "$D/force_install_failure" ]] && { echo "failed[-11]: install failed"; exit 1; }
-          file="$3"
-          id=$(basename "$file" | sed 's/\\.[a-z]*$//')
-          grep -qF -- "'$id'" "$D/apps_list.txt" 2>/dev/null || echo "'$id'  '$id'" >> "$D/apps_list.txt"
-          echo "installed"
         fi
         """
         try script.write(to: cli, atomically: true, encoding: .utf8)
@@ -183,7 +193,10 @@ struct TizenChangeEngineTests {
         let report = try await signedEngine(r, cli: try permitCLI(r)).apply([.installSigned(wgt: try wgt("jellyfin.wgt"), expectedApp: jf)], on: tv, reason: "jf")
         #expect(report.applied.count == 1 && report.failed == nil && report.verified)
         #expect(r.fake.lines("tizen.log").first == "install-permit -s 192.168.1.60:26101")
-        #expect(r.fake.lines("tizen.log").last?.hasPrefix("install -n") == true && r.fake.lines("tizen.log").last?.hasSuffix("-s 192.168.1.60:26101") == true)
+        // Installed through sdb on the exact serial: push the package, then vd_appinstall by app id.
+        let calls = r.fake.calls()
+        #expect(calls.contains { $0.hasPrefix("-s 192.168.1.60:26101 push ") && $0.hasSuffix("tether-install.wgt") })
+        #expect(calls.contains { $0 == "-s 192.168.1.60:26101 shell 0 vd_appinstall jellyfin /home/owner/share/tmp/sdk_tools/tmp/tether-install.wgt" })
         let points = await r.store.list(), cached = await r.store.wgt(for: jf)
         #expect(points.count == 1 && cached != nil)
         #expect(!r.fake.calls().contains { $0.contains("uninstall") })

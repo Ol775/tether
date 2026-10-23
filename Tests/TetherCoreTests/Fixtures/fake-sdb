@@ -26,6 +26,7 @@ case "$cmd" in
     if [[ -f $D/connect_exit ]]; then exit "$(cat "$D/connect_exit")"; fi ;;
   disconnect) echo "disconnected $1" ;;
   capability) list capability.txt ;;
+  push) mutating; echo "pushed ${!#}"; echo "1 file(s) pushed. 0 file(s) skipped." ;;
   install)
     mutating; echo "install $*" >> "$D/installs.log"
     [[ -f $D/force_install_failure ]] && { echo "failed[-11]: install failed"; exit 0; }
@@ -36,6 +37,13 @@ case "$cmd" in
     set -- $*
     case "$*" in
       "0 applist") if [[ -f $D/blank_applist ]]; then echo "error: closed"; else list apps_list.txt; fi ;;
+      0\ vd_appinstall\ *)
+        mutating
+        [[ -f $D/force_install_failure ]] && { echo "app_id[$3] install failed[-11]"; exit 0; }
+        id=$3
+        echo "app_id[$id] install start"
+        grep -qF -- "'$id'" "$D/apps_list.txt" 2>/dev/null || echo "'$id'  '$id'" >> "$D/apps_list.txt"
+        echo "app_id[$id] install completed" ;;
       0\ vd_appuninstall\ *)
         [[ -f $D/no_vd ]] && { echo "unsupported: $*" >&2; exit 1; }
         [[ -f $D/no_vd_exit0 ]] && { echo "sh: vd_appuninstall: not found"; exit 0; }

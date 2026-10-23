@@ -98,29 +98,28 @@ public actor TizenChangeEngine {
                         await log.append("\(device.serial): uninstalled \(id)")
                     }
                 case .install(let file), .installSigned(let file, _):
-                    let expectedApp: TizenAppID?
-                    guard let cli = tizenCLI else { throw SDBError.toolsMissing }
-                    if case .installSigned(_, let id) = change {
-                        expectedApp = id
+                    // The `tizen` CLI's own install command is unusable on real TVs here (a log4j
+                    // misconfiguration corrupts its output and it fails to stage the package), so drive
+                    // the platform installer directly: push the signed package, then `vd_appinstall` by
+                    // the app id the TV will register — read from the package itself, not guessed.
+                    let packageID = try await Self.packageAppID(of: file)
+                    if case .installSigned(_, let expected) = change, expected != packageID {
+                        throw SDBError.commandFailed(code: 1, output: "The package is \(packageID.value), not the expected \(expected.value); nothing was installed.")
+                    }
+                    if case .installSigned = change {
+                        // A signed sideload needs the TV to trust this profile's certificate first.
+                        guard let cli = tizenCLI else { throw SDBError.toolsMissing }
                         let permit = try await TizenCLI.run(cli, ["install-permit", "-s", device.serial], timeout: .seconds(60))
                         guard permit.status == 0 else { throw SDBError.classify(code: permit.status, output: permit.err + permit.out) }
-                    } else { expectedApp = nil }
-                    let before = Set(known.map(\.id))
-                    // `sdb install` only pushes the file on real hardware; the `tizen` CLI's own install
-                    // command is what actually triggers the platform installer.
-                    let installResult = try await TizenCLI.run(cli, ["install", "-n", file.path, "-s", device.serial], timeout: ADBRunner.transferTimeout)
-                    try Self.checkInstallOutput(installResult.out + installResult.err, exitCode: installResult.status)
-                    known = try await relist(device, previously: known)
-                    if let expectedApp {
-                        guard known.contains(where: { $0.id == expectedApp }) else {
-                            throw SDBError.commandFailed(code: 1, output: "The TV did not confirm the expected app id after installation.")
-                        }
-                        try await store.saveWGT(file, for: expectedApp)
                     }
-                    let added = known.map(\.id).filter { !before.contains($0) }
-                    if expectedApp == nil && added.count == 1 { try await store.saveWGT(file, for: added[0]) }   // keep the signed package so a later removal can be undone
+                    try await installPackage(file, appID: packageID, on: device)
+                    known = try await relist(device, previously: known)
+                    guard known.contains(where: { $0.id == packageID }) else {
+                        throw SDBError.commandFailed(code: 1, output: "The TV did not confirm \(packageID.value) after installation.")
+                    }
+                    try await store.saveWGT(file, for: packageID)   // keep the signed package so a later removal can be undone
                     applied.append(change)
-                    await log.append("\(device.serial): installed \(file.lastPathComponent)")
+                    await log.append("\(device.serial): installed \(file.lastPathComponent) (\(packageID.value))")
                 }
             } catch {
                 let sdbError = (error as? SDBError) ?? .commandFailed(code: 1, output: "\(error)")
@@ -148,6 +147,33 @@ public actor TizenChangeEngine {
             || ["error:", "failed", "cannot install", "can not install", "permission denied", "val[fail]", "key[error]"].contains { lower.contains($0) }
         let success = ["installed", "install completed", "success", "val[ok]"].contains { lower.contains($0) }
         guard success && !failure else { throw SDBError.classify(code: exitCode == 0 ? 1 : exitCode, output: output) }
+    }
+
+    /// The SDK's on-device staging directory that `vd_appinstall` reads from. A fixed filename is safe:
+    /// `exclusive` serialises installs per TV, and it keeps spaces/encoding out of the pushed path.
+    private static let stagingDir = "/home/owner/share/tmp/sdk_tools/tmp"
+
+    /// Push the package, then trigger the platform installer by app id. This is what the `tizen` CLI
+    /// does internally, minus its broken local staging step.
+    private func installPackage(_ file: URL, appID: TizenAppID, on device: TizenDevice) async throws {
+        let remote = "\(Self.stagingDir)/tether-install.\(file.pathExtension.lowercased())"
+        _ = try await sdb.run(["push", file.path, remote], serial: device.serial, timeout: ADBRunner.transferTimeout)
+        let out = try await sdb.run(["shell", "0", "vd_appinstall", appID.value, remote], serial: device.serial, timeout: ADBRunner.transferTimeout)
+        try Self.checkInstallOutput(out)
+    }
+
+    /// The app id the TV registers for a package, read from the package itself: `config.xml` for a
+    /// `.wgt` web app, `tizen-manifest.xml` for a `.tpk`. `vd_appinstall` needs it up front.
+    static func packageAppID(of file: URL) async throws -> TizenAppID {
+        func entry(_ name: String) async -> String? {
+            let r = try? await ProcessRunner.run(URL(fileURLWithPath: "/usr/bin/unzip"), ["-p", file.path, name], timeout: .seconds(30))
+            return r?.status == 0 ? r?.out : nil
+        }
+        if let xml = await entry("config.xml"),
+           let m = xml.firstMatch(of: #/<tizen:application\b[^>]*\bid="([^"]+)"/#), let id = TizenAppID(String(m.1)) { return id }
+        if let xml = await entry("tizen-manifest.xml"),
+           let m = xml.firstMatch(of: #/<ui-application\b[^>]*\bappid="([^"]+)"/#), let id = TizenAppID(String(m.1)) { return id }
+        throw SDBError.commandFailed(code: 1, output: "Couldn't read the Tizen application id from \(file.lastPathComponent).")
     }
 
     /// Re-reads the app list after a change. An empty list when there were apps a moment ago is a failed read, not a result.
