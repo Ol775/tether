@@ -1,0 +1,44 @@
+#!/bin/bash
+# Scripted stand-in for sdb. State files live beside this script (override: FAKE_SDB_DIR).
+D=${FAKE_SDB_DIR:-$(cd "$(dirname "$0")" && pwd)}
+echo "$*" >> "$D/calls.log"
+while [[ "${1:-}" == -s ]]; do shift 2; done
+
+[[ -f $D/sleep ]] && sleep "$(cat "$D/sleep")"
+if [[ -f $D/force_error ]]; then cat "$D/force_error" >&2; exit 1; fi
+
+fail_offline() { echo "error: closed" >&2; exit 1; }
+# fail_after file: mutating call n+1 goes offline.
+mutating() {
+  local n; n=$(( $(cat "$D/mutations" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$D/mutations"
+  local limit; limit=${FAKE_SDB_FAIL_AFTER:-$(cat "$D/fail_after" 2>/dev/null)}
+  [[ -n $limit && $n -gt $limit ]] && fail_offline
+  return 0
+}
+list() { [[ -f $D/$1 ]] && cat "$D/$1"; return 0; }
+has() { grep -qxF -- "$2" "$D/$1" 2>/dev/null; }
+drop() { grep -vxF -- "$2" "$D/$1" > "$D/$1.tmp" 2>/dev/null; mv "$D/$1.tmp" "$D/$1"; }
+
+cmd=${1:-}; shift
+case "$cmd" in
+  devices) echo "List of devices attached"; list devices.txt ;;
+  connect) if [[ -f $D/connect_result ]]; then cat "$D/connect_result"; else echo "connecting to $1 ..."; echo "connected to $1"; fi ;;
+  disconnect) echo "disconnected $1" ;;
+  capability) list capability.txt ;;
+  install)
+    mutating; echo "install $*" >> "$D/installs.log"
+    id=$(basename "${!#}" | sed 's/\.[a-z]*$//')
+    has apps.txt "$id" || echo "$id" >> "$D/apps.txt"
+    echo "installed" ;;
+  shell)
+    set -- $*
+    case "$*" in
+      "0 applist") list apps_list.txt ;;
+      0\ vd_appuninstall\ *)
+        mutating
+        id=$3
+        if has locked_apps.txt "$id"; then echo "can not uninstall app"; else drop apps_list.txt "$id"; echo "uninstalled $id"; fi ;;
+      *) echo "unsupported: $*" >&2; exit 1 ;;
+    esac ;;
+  *) echo "unknown: $cmd" >&2; exit 1 ;;
+esac
