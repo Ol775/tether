@@ -74,6 +74,8 @@ final class AppModel {
     var showInspector = true
     var inspected: CatalogEntry?
     var pendingChoice: ChoiceRequest?
+    /// A restore point made at a different address; held until the user confirms it is the same device.
+    var addressChangeRevert: RestorePoint?
 
     private let adb: ADBRunner
     private let deviceManager: DeviceManager
@@ -202,8 +204,12 @@ final class AppModel {
         }
     }
 
-    func revert(_ rp: RestorePoint) async {
+    func revert(_ rp: RestorePoint, addressChangeConfirmed: Bool = false) async {
         guard let device = selected else { return }
+        if rp.profile.serial != device.serial && !addressChangeConfirmed {
+            addressChangeRevert = rp
+            return
+        }
         await run("Couldn't revert") {
             let report = try await engine.revert(rp, on: device)
             present(report, title: "Reverted: \(rp.reason)", showReport: true)

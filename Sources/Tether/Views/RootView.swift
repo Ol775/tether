@@ -40,6 +40,12 @@ struct RootView: View {
             }
             .padding(24).frame(width: 380)
         }
+        .confirmationDialog("This device has a new address", isPresented: Binding(get: { model.addressChangeRevert != nil }, set: { if !$0 { model.addressChangeRevert = nil } }), titleVisibility: .visible, presenting: model.addressChangeRevert) { rp in
+            Button("Revert on \(model.selected?.model ?? "this device")") { Task { await model.revert(rp, addressChangeConfirmed: true) } }
+            Button("Cancel", role: .cancel) {}
+        } message: { rp in
+            Text("This restore point was saved at \(rp.profile.serial); the device is now at \(model.selected?.serial ?? "?"). The hardware serial, vendor and model match. Only continue if it's the same \(rp.profile.model).")
+        }
         .alert(model.alert?.title ?? "", isPresented: Binding(get: { model.alert != nil }, set: { if !$0 { model.alert = nil } })) {
             Button("OK") { model.alert = nil }
         } message: { Text(model.alert?.message ?? "") }
