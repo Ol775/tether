@@ -25,10 +25,13 @@ struct Sidebar: View {
             }
         }
         .safeAreaInset(edge: .bottom) {
-            Button { model.showPairing = true } label: {
-                Label("Add device", systemImage: "plus").frame(maxWidth: .infinity)
+            VStack(spacing: 6) {
+                Button { model.showPairing = true } label: {
+                    Label("Add device", systemImage: "plus").frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.glass)
+                Text("Beta · use at your own risk").font(.caption2).foregroundStyle(.secondary)
             }
-            .buttonStyle(.glass)
             .padding(12)
         }
     }

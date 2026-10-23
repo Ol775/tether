@@ -21,6 +21,12 @@ struct TizenReportBox: Identifiable {
     let report: TizenReport
 }
 
+enum UpdateStatus: Equatable {
+    case idle, checking
+    case available(UpdateInfo)
+    case installing(String)
+}
+
 struct Toast: Identifiable {
     let id = UUID()
     let message: String
@@ -108,6 +114,9 @@ final class AppModel {
     var showInspector = true
     var inspected: CatalogEntry?
     var pendingChoice: ChoiceRequest?
+    var updateStatus: UpdateStatus = .idle
+    var updateDismissed = false
+    var showBetaNotice = !UserDefaults.standard.bool(forKey: "betaAcknowledged") && ProcessInfo.processInfo.environment["TETHER_SKIP_BETA_NOTICE"] == nil
     /// A restore point made at a different address; held until the user confirms it is the same device.
     var addressChangeRevert: RestorePoint?
 
@@ -148,6 +157,9 @@ final class AppModel {
         tizenEngine = TizenChangeEngine(sdb: sdb, store: tizenStore, log: log, tizenCLI: samsungHome.appendingPathComponent("tizen-studio/tools/ide/bin/tizen"))
         certificates = TizenCertificates(tools: tools)
         tizenToolsReady = tools.isInstalled
+        if let demo = env["TETHER_DEMO_UPDATE"], Updater.isPlainVersion(demo) {   // lets scripts/screenshots show the banner; its button has nothing to download
+            updateStatus = .available(UpdateInfo(version: demo, notes: "Demo"))
+        }
         lockedByDevice = Self.loadLocked(supportDir.appendingPathComponent("tizen-locked.json"))
     }
 
@@ -179,6 +191,7 @@ final class AppModel {
         case let e as SDBError: e.advice
         case let e as TizenError: e.advice
         case let e as SamsungToolsError: e.advice
+        case let e as UpdateError: e.advice
         case let e as ChangeError:
             switch e {
             case .wrongDevice: "That restore point belongs to a different device."

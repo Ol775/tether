@@ -58,6 +58,13 @@ or run `xattr -dr com.apple.quarantine build/Tether.app`. `adb` is fetched at bu
 `swift test` runs the suite (about 25 s). The app icon is rendered from `assets/icon.svg` by `./scripts/make-icon.sh`. `./scripts/screenshots.sh` rebuilds the screenshots against a demo device and
 doubles as a launch smoke test; `demo/run.sh` opens the app on that demo device without touching real data.
 
+## Updates
+
+Tether checks GitHub for new releases (at launch and every few hours, or **Tether → Check for Updates…**) and can update
+itself. An update installs only if it carries a valid signature from the offline release key built into the app, on top of
+the usual size, checksum, bundle-id and code-signature checks. See [SECURITY.md](SECURITY.md#how-updates-are-trusted). A copy
+run from Downloads can't replace itself: move it to Applications first.
+
 ## Safety model
 
 See [docs/safety-model.md](docs/safety-model.md). In short: no change without a verified restore point, one
@@ -71,4 +78,4 @@ code path for every mutation, and strict validation of anything that reaches the
 3. Later: Fire TV's newer Vega OS, if its tooling allows.
 
 More: [architecture](docs/architecture.md) · [catalogue format](docs/catalog-format.md) ·
-[Fire TV setup](docs/setup/fire-tv.md) · [Android setup](docs/setup/android.md) · [Android TV setup](docs/setup/android-tv.md) · [Samsung TV setup](docs/setup/samsung-tv.md)
+[Security](SECURITY.md) · [Releasing](RELEASING.md) · [Fire TV setup](docs/setup/fire-tv.md) · [Android setup](docs/setup/android.md) · [Android TV setup](docs/setup/android-tv.md) · [Samsung TV setup](docs/setup/samsung-tv.md)

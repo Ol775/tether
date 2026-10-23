@@ -57,6 +57,19 @@ struct RootView: View {
             Button("OK") { model.alert = nil }
         } message: { Text(model.alert?.message ?? "") }
         .overlay(alignment: .bottom) { ToastHost() }
+        .overlay(alignment: .top) { UpdateBanner() }
+        .alert("Tether is beta software", isPresented: $model.showBetaNotice) {
+            Button("I understand") { UserDefaults.standard.set(true, forKey: "betaAcknowledged") }
+        } message: {
+            Text("Tether changes settings and removes apps on your devices. It saves a restore point first and most changes can be undone, but it has had very little real-device testing. Use it at your own risk, on devices you own and can recover.")
+        }
+        .task {
+            try? await Task.sleep(for: .seconds(3))
+            while !Task.isCancelled {
+                await model.checkForUpdates()
+                try? await Task.sleep(for: .seconds(6 * 3600))
+            }
+        }
         .task {
             while !Task.isCancelled {
                 await model.pollDevices()

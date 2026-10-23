@@ -8,6 +8,8 @@ mkdir -p "$SCRATCH/support"
 export TETHER_ADB="$PWD/Tests/TetherCoreTests/Fixtures/fake-adb"
 export FAKE_ADB_DIR="$SCRATCH/state"
 export TETHER_SUPPORT="$SCRATCH/support"
+export TETHER_SKIP_BETA_NOTICE=1   # the demo is not a first run
+export TETHER_NO_UPDATE_CHECK=1    # and must not reach out to GitHub
 if [[ ${TETHER_TIZEN_DEMO:-} == 1 ]]; then
   # Samsung TV demo: no adb devices, a scripted sdb and tizen CLI inside a fake tools folder.
   mkdir -p "$SCRATCH/adbstate" && : > "$SCRATCH/adbstate/devices.txt"

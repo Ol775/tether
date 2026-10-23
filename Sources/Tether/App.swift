@@ -19,5 +19,10 @@ struct TetherApp: App {
         }
         .defaultSize(width: 1240, height: 780)
         .windowToolbarStyle(.unified)
+        .commands {
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates…") { Task { await model.checkForUpdates(userInitiated: true) } }
+            }
+        }
     }
 }
