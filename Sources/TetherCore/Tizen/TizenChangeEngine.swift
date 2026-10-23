@@ -99,15 +99,17 @@ public actor TizenChangeEngine {
                     }
                 case .install(let file), .installSigned(let file, _):
                     let expectedApp: TizenAppID?
+                    guard let cli = tizenCLI else { throw SDBError.toolsMissing }
                     if case .installSigned(_, let id) = change {
                         expectedApp = id
-                        guard let cli = tizenCLI else { throw SDBError.toolsMissing }
                         let permit = try await TizenCLI.run(cli, ["install-permit", "-s", device.serial], timeout: .seconds(60))
                         guard permit.status == 0 else { throw SDBError.classify(code: permit.status, output: permit.err + permit.out) }
                     } else { expectedApp = nil }
                     let before = Set(known.map(\.id))
-                    let output = try await sdb.run(["install", file.path], serial: device.serial, timeout: ADBRunner.transferTimeout)
-                    try Self.checkInstallOutput(output)
+                    // `sdb install` only pushes the file on real hardware; the `tizen` CLI's own install
+                    // command is what actually triggers the platform installer.
+                    let installResult = try await TizenCLI.run(cli, ["install", "-n", file.path, "-s", device.serial], timeout: ADBRunner.transferTimeout)
+                    try Self.checkInstallOutput(installResult.out + installResult.err, exitCode: installResult.status)
                     known = try await relist(device, previously: known)
                     if let expectedApp {
                         guard known.contains(where: { $0.id == expectedApp }) else {
@@ -140,11 +142,12 @@ public actor TizenChangeEngine {
         return TizenReport(restorePoint: rp, applied: applied, skipped: skipped, failed: failed, pending: pending, locked: locked, cannotRestore: [], verified: verified)
     }
 
-    static func checkInstallOutput(_ output: String) throws {
+    static func checkInstallOutput(_ output: String, exitCode: Int32 = 0) throws {
         let lower = output.lowercased()
-        let failure = ["error:", "failed", "cannot install", "can not install", "permission denied", "val[fail]", "key[error]"].contains { lower.contains($0) }
+        let failure = exitCode != 0
+            || ["error:", "failed", "cannot install", "can not install", "permission denied", "val[fail]", "key[error]"].contains { lower.contains($0) }
         let success = ["installed", "install completed", "success", "val[ok]"].contains { lower.contains($0) }
-        guard success && !failure else { throw SDBError.classify(code: 1, output: output) }
+        guard success && !failure else { throw SDBError.classify(code: exitCode == 0 ? 1 : exitCode, output: output) }
     }
 
     /// Re-reads the app list after a change. An empty list when there were apps a moment ago is a failed read, not a result.

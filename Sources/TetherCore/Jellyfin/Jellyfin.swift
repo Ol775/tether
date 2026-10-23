@@ -28,9 +28,10 @@ public enum Jellyfin {
     public static let androidID = PackageName("org.jellyfin.androidtv")!
     public static let tizenID = TizenAppID("AprZAARz4r.Jellyfin")!
 
+    /// Jellyfin server/web releases were "10.x.y"; from v12 they dropped the patch component ("12.3"). Accept both.
     public static func stableVersion(_ raw: String) -> String? {
         let version = raw.hasPrefix("v") ? String(raw.dropFirst()) : raw
-        guard version.firstMatch(of: #/^\d+\.\d+\.\d+$/#) != nil else { return nil }
+        guard version.firstMatch(of: #/^\d+\.\d+(\.\d+)?$/#) != nil else { return nil }
         return version
     }
 

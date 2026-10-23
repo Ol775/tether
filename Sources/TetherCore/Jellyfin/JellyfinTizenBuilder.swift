@@ -40,6 +40,16 @@ public struct JellyfinTizenBuilder: Sendable {
         ]
     }
 
+    /// Samsung gates `developer.samsung.com/privilege/*` behind a Partner-level certificate; an
+    /// individual's Public certificate can only sign a package that doesn't request one. Dropping it
+    /// (currently just `productinfo`, used for device-info reporting, not playback) lets a Public-signed
+    /// build install at all. One line of config.xml per tag, confirmed against a real build's output.
+    static func stripPartnerPrivileges(at configURL: URL) throws {
+        let text = try String(contentsOf: configURL, encoding: .utf8)
+        let kept = text.components(separatedBy: "\n").filter { !$0.contains("developer.samsung.com/privilege/") }
+        try kept.joined(separator: "\n").write(to: configURL, atomically: true, encoding: .utf8)
+    }
+
     public func build(version: String, commit: String, profile: String, cache: URL,
                       progress: @escaping @Sendable (String) -> Void) async throws -> JellyfinBuild {
         let work = FileManager.default.temporaryDirectory.appendingPathComponent("tether-jellyfin-\(UUID())")
@@ -69,6 +79,9 @@ public struct JellyfinTizenBuilder: Sendable {
             }
             guard result.status == 0 else {
                 throw JellyfinError.buildFailed(step.label + "\n" + String((result.err + result.out).suffix(2500)))
+            }
+            if step.label.hasPrefix("Building the TV application") {
+                try Self.stripPartnerPrivileges(at: work.appendingPathComponent("jellyfin-tizen/.buildResult/config.xml"))
             }
         }
         try Task.checkCancellation()

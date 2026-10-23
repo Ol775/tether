@@ -62,11 +62,12 @@ struct TizenChangeEngineTests {
 
     @Test func revertReinstallsAppsTetherInstalled() async throws {
         let r = try rig()
-        _ = try await r.engine.apply([.install(wgt: try wgt("zulu.wgt"))], on: tv, reason: "install")
+        let engine = signedEngine(r, cli: try permitCLI(r))
+        _ = try await engine.apply([.install(wgt: try wgt("zulu.wgt"))], on: tv, reason: "install")
         #expect(r.has(TizenAppID("zulu")!))
-        let removal = try await r.engine.apply([.uninstall(TizenAppID("zulu")!)], on: tv, reason: "remove")
+        let removal = try await engine.apply([.uninstall(TizenAppID("zulu")!)], on: tv, reason: "remove")
         #expect(!r.has(TizenAppID("zulu")!))
-        let reverted = try await r.engine.revert(removal.restorePoint, on: tv)
+        let reverted = try await engine.revert(removal.restorePoint, on: tv)
         #expect(reverted.failed == nil && reverted.cannotRestore.isEmpty && r.has(TizenAppID("zulu")!))
     }
 
@@ -148,10 +149,25 @@ struct TizenChangeEngineTests {
 
     // MARK: installSigned
 
-    /// Fake `tizen` CLI: logs its arguments; `permitFail` makes install-permit fail.
+    /// Fake `tizen` CLI: logs its arguments. `permitFail` makes install-permit fail; `force_install_failure`
+    /// (a marker file in the fake sdb dir, same switch the fake sdb script used) makes `install` fail instead
+    /// of updating the shared apps_list.txt that `relist()` reads back through the fake sdb.
     func permitCLI(_ r: Rig, failing: Bool = false) throws -> URL {
         let cli = FileManager.default.temporaryDirectory.appendingPathComponent("faketizen-\(UUID().uuidString)")
-        let script = "#!/bin/bash\necho \"$*\" >> '\(r.fake.dir.path)/tizen.log'\n" + (failing ? "echo 'permit denied' >&2; exit 1\n" : "")
+        let script = """
+        #!/bin/bash
+        D='\(r.fake.dir.path)'
+        echo "$*" >> "$D/tizen.log"
+        if [[ "$1" == install-permit ]]; then
+        \(failing ? "echo 'permit denied' >&2; exit 1" : "exit 0")
+        elif [[ "$1" == install ]]; then
+          [[ -f "$D/force_install_failure" ]] && { echo "failed[-11]: install failed"; exit 1; }
+          file="$3"
+          id=$(basename "$file" | sed 's/\\.[a-z]*$//')
+          grep -qF -- "'$id'" "$D/apps_list.txt" 2>/dev/null || echo "'$id'  '$id'" >> "$D/apps_list.txt"
+          echo "installed"
+        fi
+        """
         try script.write(to: cli, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: cli.path)
         return cli
@@ -166,10 +182,11 @@ struct TizenChangeEngineTests {
         let jf = TizenAppID("jellyfin")!
         let report = try await signedEngine(r, cli: try permitCLI(r)).apply([.installSigned(wgt: try wgt("jellyfin.wgt"), expectedApp: jf)], on: tv, reason: "jf")
         #expect(report.applied.count == 1 && report.failed == nil && report.verified)
-        #expect(r.fake.lines("tizen.log") == ["install-permit -s 192.168.1.60:26101"])
+        #expect(r.fake.lines("tizen.log").first == "install-permit -s 192.168.1.60:26101")
+        #expect(r.fake.lines("tizen.log").last?.hasPrefix("install -n") == true && r.fake.lines("tizen.log").last?.hasSuffix("-s 192.168.1.60:26101") == true)
         let points = await r.store.list(), cached = await r.store.wgt(for: jf)
         #expect(points.count == 1 && cached != nil)
-        #expect(r.fake.lines("installs.log").count == 1 && !r.fake.calls().contains { $0.contains("uninstall") })
+        #expect(!r.fake.calls().contains { $0.contains("uninstall") })
     }
 
     @Test func aFailedPermitPreventsTheInstallButKeepsTheRestorePoint() async throws {
@@ -178,13 +195,13 @@ struct TizenChangeEngineTests {
         let report = try await signedEngine(r, cli: try permitCLI(r, failing: true)).apply([.installSigned(wgt: try wgt("jellyfin.wgt"), expectedApp: jf)], on: tv, reason: "jf")
         #expect(report.applied.isEmpty && report.failed != nil && !r.has(jf))
         let points = await r.store.list()
-        #expect(r.fake.lines("installs.log").isEmpty && points.count == 1)
+        #expect(points.count == 1)
     }
 
     @Test func installSignedWithoutTheTizenCLIFailsBeforeAnySDBInstall() async throws {
         let r = try rig()
         let report = try await signedEngine(r, cli: nil).apply([.installSigned(wgt: try wgt("jellyfin.wgt"), expectedApp: TizenAppID("jellyfin")!)], on: tv, reason: "jf")
-        #expect(report.failed?.1 == .toolsMissing && r.fake.lines("installs.log").isEmpty)
+        #expect(report.failed?.1 == .toolsMissing && !r.has(TizenAppID("jellyfin")!))
     }
 
     @Test func aWrongExpectedIDIsAFailureAndNothingIsCached() async throws {

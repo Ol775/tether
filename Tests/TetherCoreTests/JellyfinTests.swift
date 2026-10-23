@@ -73,4 +73,27 @@ struct JellyfinTests {
         #expect(!JellyfinTizenBuilder.declaresJellyfin("<widget><tizen:application id=\"evil.App\"/></widget>"))
         #expect(!JellyfinTizenBuilder.declaresJellyfin(""))
     }
+
+    @Test func stableVersionAcceptsTwoAndThreePartSemver() {
+        #expect(Jellyfin.stableVersion("v12.3") == "12.3")
+        #expect(Jellyfin.stableVersion("10.10.7") == "10.10.7")
+        #expect(Jellyfin.stableVersion("v10.10.7") == "10.10.7")
+        #expect(Jellyfin.stableVersion("12") == nil)
+        #expect(Jellyfin.stableVersion("12.3.4.5") == nil)
+    }
+
+    @Test func stripPartnerPrivilegesDropsOnlySamsungPartnerTagsNotTizenOrgOnes() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("config-\(UUID()).xml")
+        try """
+        <widget>
+            <tizen:privilege name="http://developer.samsung.com/privilege/productinfo"/>
+            <tizen:privilege name="http://tizen.org/privilege/tv.inputdevice"/>
+        </widget>
+        """.write(to: url, atomically: true, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(at: url) }
+        try JellyfinTizenBuilder.stripPartnerPrivileges(at: url)
+        let kept = try String(contentsOf: url, encoding: .utf8)
+        #expect(!kept.contains("developer.samsung.com"))
+        #expect(kept.contains("tv.inputdevice"))
+    }
 }
