@@ -62,7 +62,7 @@ public actor ChangeEngine {
         }
 
         let after = try? await DeviceSnapshot.capture(adb: adb, serial: device.serial)
-        let verified = after.map { snap in applied.allSatisfy { Self.holds($0, in: snap) } } ?? false
+        let verified = after.map { snap in applied.allSatisfy { snap.satisfies($0) } } ?? false
         return ChangeReport(restorePoint: rp, applied: applied, failed: failed, pending: pending, verified: verified)
     }
 
@@ -85,17 +85,6 @@ public actor ChangeEngine {
         case .removePackage(let p): s.state(of: p) == .removedForUser
         case .restorePackage(let p): isPresent(s.state(of: p))
         default: false
-        }
-    }
-
-    private static func holds(_ change: Change, in s: DeviceSnapshot) -> Bool {
-        switch change {
-        case .removePackage(let p): !isPresent(s.state(of: p))
-        case .restorePackage(let p): isPresent(s.state(of: p))
-        case .setSetting(let ns, let key, let value): s.settings[ns.rawValue]?[key] == value
-        case .deleteSetting(let ns, let key): s.settings[ns.rawValue]?[key] == nil
-        case .setDensity(let dpi): s.density == dpi
-        case .setHome, .revokePermission, .grantPermission: true   // not cheaply checkable
         }
     }
 }

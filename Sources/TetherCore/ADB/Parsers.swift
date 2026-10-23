@@ -55,6 +55,12 @@ public enum Parsers {
             .flatMap { Int($0.dropFirst("Override density:".count).trimmingCharacters(in: .whitespaces)) }
     }
 
+    public static func physicalDensity(_ output: String) -> Int? {
+        output.split(whereSeparator: \.isNewline)
+            .first { $0.hasPrefix("Physical density:") }
+            .flatMap { Int($0.dropFirst("Physical density:".count).trimmingCharacters(in: .whitespaces)) }
+    }
+
     private static func names(_ output: String) -> Set<PackageName> {
         Set(output.split(whereSeparator: \.isNewline).compactMap { line in
             line.hasPrefix("package:") ? PackageName(String(line.dropFirst(8))) : nil
