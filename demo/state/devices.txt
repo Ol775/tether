@@ -1,0 +1,1 @@
+192.168.1.50:5555       device product:mdarcy model:AFTMM device:mdarcy transport_id:1

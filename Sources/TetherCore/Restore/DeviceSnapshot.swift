@@ -42,7 +42,7 @@ public struct DeviceSnapshot: Equatable, Sendable {
         }
     }
 
-    var installedNames: Set<PackageName> {
+    public var installedNames: Set<PackageName> {
         Set(packages.filter { $0.state != .removedForUser }.map(\.name))
     }
 

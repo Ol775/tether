@@ -45,6 +45,7 @@ case "$cmd" in
         file=packages_installed.txt
         [[ " $* " == *" -u "* ]] && file=packages_all.txt
         [[ " $* " == *" -d "* ]] && file=packages_disabled.txt
+        [[ " $* " == *" -3 "* ]] && file=packages_third.txt
         while read -r p; do [[ -n $p ]] && echo "package:$p"; done < <(list $file) ;;
       pm\ path\ *)
         has packages_installed.txt "$3" || exit 1

@@ -1,0 +1,10 @@
+com.amazon.imdb.tv.android.app
+com.amazon.bueller.music
+com.amazon.bueller.photos
+com.amazon.amazonvideo.livingroom
+com.amazon.dcp
+com.amazon.tv.launcher
+com.amazon.tv.settings.v2
+com.android.providers.media
+org.videolan.vlc
+com.spocky.projengmenu

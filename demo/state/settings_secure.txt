@@ -1,0 +1,1 @@
+screensaver_enabled=1

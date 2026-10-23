@@ -18,7 +18,7 @@ public actor Installer {
     /// `chooser` is asked only when several assets fit; returning nil cancels.
     @discardableResult
     public func installLatest(of repoInput: String, on device: DeviceProfile,
-                              chooser: ([ReleaseAsset]) async -> ReleaseAsset?) async throws -> ReleaseAsset {
+                              chooser: @Sendable ([ReleaseAsset]) async -> ReleaseAsset?) async throws -> ReleaseAsset {
         guard let (owner, repo) = GitHubRelease.parseRepo(repoInput) else { throw GitHubError.badRepo }
         let release = try await GitHubRelease.latest(owner: owner, repo: repo, session: session)
         let asset: ReleaseAsset
