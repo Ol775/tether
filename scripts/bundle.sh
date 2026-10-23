@@ -10,6 +10,7 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN/Tether" "$APP/Contents/MacOS/Tether"
 cp -R "$BIN"/Tether_TetherCore.bundle "$APP/Contents/Resources/" 2>/dev/null || true
+cp assets/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 cp vendor/platform-tools/adb "$APP/Contents/Resources/adb"
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -17,6 +18,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 <plist version="1.0"><dict>
 <key>CFBundleName</key><string>Tether</string>
 <key>CFBundleIdentifier</key><string>io.github.ol775.tether</string>
+<key>CFBundleIconFile</key><string>AppIcon</string>
 <key>CFBundleExecutable</key><string>Tether</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>0.1.0</string>

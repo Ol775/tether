@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/images/logo.png" width="128" alt="Tether logo"></p>
+
 # Tether
 
 A native macOS app for tidying Android-based devices over the network: back up, remove bloat and
