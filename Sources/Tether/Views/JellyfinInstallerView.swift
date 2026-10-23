@@ -19,6 +19,13 @@ struct JellyfinInstallerView: View {
     private var installed: Bool { samsung ? model.tizenApps.contains { $0.id == Jellyfin.tizenID } : installedAndroid == true }
     private var saved: JellyfinBuild? { model.jellyfinCache.flatMap { Jellyfin.savedBuild(in: $0) } }
     private var disabled: Bool { checking || model.isBusy }
+    /// Why "Build…" is greyed out, so the disabled button isn't a dead end.
+    private var buildBlocker: String? {
+        if !model.tizenToolsReady { "Set up the Samsung tools first." }
+        else if Jellyfin.stableVersion(webVersion) == nil { "Enter a stable Jellyfin Web version such as 10.10.7." }
+        else if profile.trimmingCharacters(in: .whitespaces).isEmpty { "Enter the name of your Samsung certificate profile." }
+        else { nil }
+    }
     private var androidUpToDate: Bool {
         guard let latestVersion, let installedVersion,
               let latest = Jellyfin.stableVersion(latestVersion), let current = Jellyfin.stableVersion(installedVersion) else { return false }
@@ -114,6 +121,9 @@ struct JellyfinInstallerView: View {
             }.disabled(disabled)
             Text("Requires Git, Node.js 20+, npm and Tizen Studio. Set the named certificate profile active in Certificate Manager and include this TV. Choose the Web version matching your server; the latest may differ.")
                 .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            if let buildBlocker, !disabled {
+                Label(buildBlocker, systemImage: "info.circle").font(.callout).foregroundStyle(.secondary)
+            }
             Text("Updates install over Jellyfin. Reinstall re-applies the saved signed build; firmware may reject same-version installs. Tether never uninstalls it automatically.")
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }

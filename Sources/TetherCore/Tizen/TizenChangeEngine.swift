@@ -142,8 +142,8 @@ public actor TizenChangeEngine {
 
     static func checkInstallOutput(_ output: String) throws {
         let lower = output.lowercased()
-        let failure = ["error:", "failed", "cannot install", "can not install", "permission denied"].contains { lower.contains($0) }
-        let success = ["installed", "install completed", "success"].contains { lower.contains($0) }
+        let failure = ["error:", "failed", "cannot install", "can not install", "permission denied", "val[fail]", "key[error]"].contains { lower.contains($0) }
+        let success = ["installed", "install completed", "success", "val[ok]"].contains { lower.contains($0) }
         guard success && !failure else { throw SDBError.classify(code: 1, output: output) }
     }
 

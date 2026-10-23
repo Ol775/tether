@@ -211,4 +211,14 @@ struct TizenChangeEngineTests {
         #expect(report.applied.count == 1 && report.verified && cached != nil)
         #expect(!r.fake.calls().contains { $0.contains("uninstall") })
     }
+
+    /// Shapes quoted in public Samsung/Tizen forum posts; the exact text on a real TV is still unconfirmed.
+    @Test func installOutputShapesFromPublicReports() throws {
+        try TizenChangeEngine.checkInstallOutput("__return_cb req_id[1] pkg_type[wgt] pkgid[fUhAZM7hJJ] key[end] val[ok]\nspend time for pkgcmd is [4667]ms")
+        try TizenChangeEngine.checkInstallOutput("app_id[Jellyfin] install completed")
+        for bad in ["key[error] val[22]\nprocessing result : SIGNATURE_INVALID [22] failed\nkey[end] val[fail]",
+                    "app_id[MyApp] install failed[118019]", "installing[10]", ""] {
+            #expect(throws: (any Error).self) { try TizenChangeEngine.checkInstallOutput(bad) }
+        }
+    }
 }
