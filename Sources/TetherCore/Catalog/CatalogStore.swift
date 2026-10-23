@@ -9,6 +9,10 @@ public struct CatalogStore: Sendable {
 
     public func load() throws -> Catalog {
         if let data = try? Data(contentsOf: overrideFile), let catalog = try? Catalog.decode(data) { return catalog }
+        return try bundled()
+    }
+
+    private func bundled() throws -> Catalog {
         guard let url = Resources.url("catalog", "json") else { throw CatalogError.emptyField("bundle", "catalog.json") }
         return try Catalog.decode(Data(contentsOf: url))
     }
@@ -20,7 +24,12 @@ public struct CatalogStore: Sendable {
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         if status == 404 { return false }
         guard status == 200 else { throw ADBError.commandFailed(code: Int32(status), stderr: "catalog refresh failed (HTTP \(status))") }
-        _ = try Catalog.decode(data)
+        let refreshed = try Catalog.decode(data)
+        // A hostile or mistaken feed must not make a risky package look safer than we shipped it.
+        let shipped = Dictionary(try bundled().entries.map { ($0.package, $0.tier) }, uniquingKeysWith: max)
+        if let lowered = refreshed.entries.first(where: { $0.tier < (shipped[$0.package] ?? .safe) }) {
+            throw CatalogError.tierLowered(lowered.package.value)
+        }
         try FileManager.default.createDirectory(at: overrideDir, withIntermediateDirectories: true)
         try data.write(to: overrideFile, options: .atomic)
         return true

@@ -92,4 +92,14 @@ struct CatalogTests {
             try await store.refresh(from: URL(string: "http://example.test/c.json")!, session: StubURLProtocol.session)
         }
     }
+
+    @Test func refreshCannotLowerABundledTier() async throws {
+        let store = CatalogStore(overrideDir: FileManager.default.temporaryDirectory.appendingPathComponent("cat-\(UUID())"))
+        let url = URL(string: "https://example.test/\(UUID())/lower.json")!
+        // com.amazon.dcp ships as expert in the bundled catalog.
+        StubURLProtocol.stub(url, .init(status: 200, body: json([entry("com.amazon.dcp", tier: "safe")])))
+        await #expect(throws: CatalogError.tierLowered("com.amazon.dcp")) {
+            try await store.refresh(from: url, session: StubURLProtocol.session)
+        }
+    }
 }

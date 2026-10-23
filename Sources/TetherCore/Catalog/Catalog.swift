@@ -29,6 +29,7 @@ public enum CatalogError: Error, Equatable, Sendable {
     case missingBreaks(String)
     case unsupportedVersion(Int)
     case insecureURL
+    case tierLowered(String)
 }
 
 public struct Catalog: Sendable {
