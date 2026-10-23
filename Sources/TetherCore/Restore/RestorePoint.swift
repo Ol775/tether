@@ -14,6 +14,8 @@ public struct RestorePoint: Codable, Identifiable, Equatable, Sendable {
     public let density: Int?
     /// Default launcher component, when the device reports one.
     public let home: String?
+    /// The changes this restore point was taken for; a revert undoes exactly these.
+    public let changes: [Change]
 }
 
 public enum RestoreError: Error, Equatable, Sendable {

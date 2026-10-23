@@ -26,7 +26,15 @@ case "$cmd" in
   pair) if [[ -f $D/pair_result ]]; then cat "$D/pair_result"; else echo "Successfully paired to $1 [guid=fake]"; fi ;;
   disconnect) echo "disconnected $1" ;;
   pull) if [[ -f $D/pull_empty ]]; then : > "$2"; else echo apk > "$2"; fi ;;
-  install) mutating; echo "$*" >> "$D/installs.log"; echo Success ;;
+  install|install-multiple)
+    mutating; echo "$cmd $*" >> "$D/installs.log"
+    for f in "$@"; do
+      if [[ $f == *.apk ]]; then pkg=$(basename "$(dirname "$f")")
+        has packages_installed.txt "$pkg" || echo "$pkg" >> "$D/packages_installed.txt"
+        has packages_all.txt "$pkg" || echo "$pkg" >> "$D/packages_all.txt"
+      fi
+    done
+    echo Success ;;
   shell)
     set -- $*   # adb joins shell args
     case "$*" in

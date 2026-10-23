@@ -10,19 +10,9 @@ public actor RestorePointStore {
         self.adb = adb
     }
 
-    public func create(device: DeviceProfile, reason: String, pullAPKsFor: [PackageName]) async throws -> RestorePoint {
+    public func create(device: DeviceProfile, reason: String, pullAPKsFor: [PackageName], changes: [Change] = []) async throws -> RestorePoint {
         let serial = device.serial
-        async let all = adb.run(["shell", "pm", "list", "packages", "-u", "--user", "0"], serial: serial)
-        async let installed = adb.run(["shell", "pm", "list", "packages", "--user", "0"], serial: serial)
-        async let disabled = adb.run(["shell", "pm", "list", "packages", "-d", "--user", "0"], serial: serial)
-        let packages = Parsers.packages(all: try await all, installed: try await installed, disabled: try await disabled)
-
-        var settings: [String: [String: String]] = [:]
-        for ns in ["global", "secure", "system"] {
-            settings[ns] = Parsers.settings(try await adb.run(["shell", "settings", "list", ns], serial: serial))
-        }
-        let density = Parsers.densityOverride(try await adb.run(["shell", "wm", "density"], serial: serial))
-        let home = try? await Self.homeComponent(adb, serial)
+        let snapshot = try await DeviceSnapshot.capture(adb: adb, serial: serial)
 
         let id = UUID()
         let folder = root.appendingPathComponent(id.uuidString)
@@ -32,8 +22,8 @@ public actor RestorePointStore {
             for pkg in pullAPKsFor { apks[pkg.value] = try await pull(pkg, into: folder, serial: serial) }
 
             let now = Date(timeIntervalSince1970: (Date().timeIntervalSince1970 * 1000).rounded() / 1000)
-            let rp = RestorePoint(id: id, createdAt: now, reason: reason, profile: device, packages: packages,
-                                  settings: settings, apks: apks, density: density, home: home)
+            let rp = RestorePoint(id: id, createdAt: now, reason: reason, profile: device, packages: snapshot.packages,
+                                  settings: snapshot.settings, apks: apks, density: snapshot.density, home: snapshot.home, changes: changes)
             try Self.encoder.encode(rp).write(to: folder.appendingPathComponent("restore.json"), options: .atomic)
             try verify(rp, in: folder)
             return rp
@@ -91,12 +81,6 @@ public actor RestorePointStore {
 
     private func read(_ folder: URL) throws -> RestorePoint {
         try Self.decoder.decode(RestorePoint.self, from: Data(contentsOf: folder.appendingPathComponent("restore.json")))
-    }
-
-    private static func homeComponent(_ adb: ADBRunner, _ serial: String) async throws -> String? {
-        let out = try await adb.run(["shell", "cmd", "package", "resolve-activity", "--brief",
-                                     "-a", "android.intent.action.MAIN", "-c", "android.intent.category.HOME"], serial: serial)
-        return out.split(whereSeparator: \.isNewline).last { $0.contains("/") }.map(String.init)
     }
 
     private static let encoder: JSONEncoder = {
