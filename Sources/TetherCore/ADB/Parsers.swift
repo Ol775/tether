@@ -13,6 +13,12 @@ public enum Parsers {
         }
     }
 
+    /// Emulators and cheap boards report placeholders that would make unrelated devices look identical.
+    private static func isRealSerial(_ s: String) -> Bool {
+        let t = s.lowercased()
+        return t.count >= 4 && !["unknown", "null", "none", "0123456789abcdef", "1234567890abcdef"].contains(t) && !t.allSatisfy { $0 == "0" }
+    }
+
     public static func profile(serial: String, getprop: String) -> DeviceProfile {
         var props: [String: String] = [:]
         for line in getprop.split(whereSeparator: \.isNewline) {
@@ -24,7 +30,7 @@ public enum Parsers {
         let abiList = props["ro.product.cpu.abilist"] ?? props["ro.product.cpu.abi"] ?? ""
         return DeviceProfile(
             serial: serial,
-            deviceID: props["ro.serialno"] ?? props["ro.boot.serialno"],
+            deviceID: [props["ro.serialno"], props["ro.boot.serialno"]].compactMap { $0 }.first(where: isRealSerial),
             vendor: vendor,
             model: props["ro.product.model"] ?? "Unknown",
             androidVersion: props["ro.build.version.release"] ?? "?",

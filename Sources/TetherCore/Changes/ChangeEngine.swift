@@ -28,7 +28,7 @@ public actor ChangeEngine {
 
     /// Undoes what `rp` was taken for. Itself takes a restore point, so a revert can be reverted.
     public func revert(_ rp: RestorePoint, on device: DeviceProfile) async throws -> ChangeReport {
-        guard rp.profile.deviceID == device.deviceID else { throw ChangeError.wrongDevice }
+        guard rp.profile.deviceID == device.deviceID, rp.profile.vendor == device.vendor, rp.profile.model == device.model else { throw ChangeError.wrongDevice }
         return try await exclusive(device) {
             let current = try await DeviceSnapshot.capture(adb: adb, serial: device.serial)
             return try await run(RevertPlanner.plan(rp, current: current), on: device, reason: "Revert: \(rp.reason)", fallback: rp)

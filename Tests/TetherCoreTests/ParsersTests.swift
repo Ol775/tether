@@ -66,5 +66,9 @@ struct ParsersTests {
         #expect(withSerial.deviceID == "G070VM123" && withSerial.serial == "10.0.0.2:5555")
         let without = Parsers.profile(serial: "10.0.0.2:5555", getprop: "")
         #expect(without.deviceID == "10.0.0.2:5555")
+        for junk in ["unknown", "0123456789ABCDEF", "00000000", ""] {
+            let p = Parsers.profile(serial: "10.0.0.2:5555", getprop: "[ro.serialno]: [\(junk)]\n")
+            #expect(p.deviceID == "10.0.0.2:5555", "placeholder \(junk) must not become an identity")
+        }
     }
 }

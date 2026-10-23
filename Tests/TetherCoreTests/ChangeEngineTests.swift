@@ -106,6 +106,13 @@ struct ChangeEngineTests {
         #expect(reverted.failed == nil && r.installed().contains(a.value))
     }
 
+    @Test func revertRefusesADifferentModelEvenWithTheSameID() async throws {
+        let r = try rig()
+        let report = try await r.engine.apply([.removePackage(a)], on: device, reason: "t")
+        let other = DeviceProfile(serial: "192.168.1.9:5555", deviceID: device.deviceID, vendor: "amazon", model: "OTHER", androidVersion: "9", sdk: 28, abis: [], platform: .fireOS)
+        await #expect(throws: ChangeError.wrongDevice) { try await r.engine.revert(report.restorePoint, on: other) }
+    }
+
     @Test func secondRunOnTheSameDeviceIsRefusedWhileOneIsInFlight() async throws {
         let r = try rig(["sleep": "0.2"])
         async let first = r.engine.apply([.removePackage(a)], on: device, reason: "first")
