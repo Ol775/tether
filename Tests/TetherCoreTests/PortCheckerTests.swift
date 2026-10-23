@@ -4,8 +4,8 @@ import Testing
 @testable import TetherCore
 
 struct PortCheckerTests {
-    /// Reserve a local port so another process cannot steal the refused-port fixture.
-    private func socket(listening: Bool) throws -> (Int32, ConnectionEndpoint) {
+    /// Ask the OS for an available loopback port and open a listener on it.
+    private func listener() throws -> (Int32, ConnectionEndpoint) {
         let fd = Darwin.socket(AF_INET, SOCK_STREAM, 0)
         guard fd >= 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
         var address = sockaddr_in()
@@ -17,27 +17,37 @@ struct PortCheckerTests {
                 Darwin.bind(fd, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
             }
         }
-        guard bound == 0 else { Darwin.close(fd); throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
+        guard bound == 0 else {
+            let error = POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+            Darwin.close(fd)
+            throw error
+        }
         var length = socklen_t(MemoryLayout<sockaddr_in>.size)
         let named = withUnsafeMutablePointer(to: &address) { ptr in
             ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { getsockname(fd, $0, &length) }
         }
-        guard named == 0, !listening || Darwin.listen(fd, 8) == 0 else {
-            Darwin.close(fd); throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+        guard named == 0, Darwin.listen(fd, 8) == 0 else {
+            let error = POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+            Darwin.close(fd)
+            throw error
         }
         return (fd, try ConnectionEndpoint(address: "127.0.0.1", port: String(UInt16(bigEndian: address.sin_port))))
     }
 
     @Test func detectsListeningPort() async throws {
-        let (fd, endpoint) = try socket(listening: true)
+        let (fd, endpoint) = try listener()
         defer { Darwin.close(fd) }
-        #expect(await PortChecker.check(endpoint) == .open)
+        let result = await PortChecker.check(endpoint)
+        #expect(result == .open)
     }
 
     @Test func detectsRefusedPort() async throws {
-        let (fd, endpoint) = try socket(listening: false)
-        defer { Darwin.close(fd) }
-        #expect(await PortChecker.check(endpoint) == .refused)
+        let (fd, endpoint) = try listener()
+        // A bound socket that has never listened can silently drop connection attempts on macOS.
+        // Close the listener so this fixture exercises a closed port instead of a timeout.
+        #expect(Darwin.close(fd) == 0)
+        let result = await PortChecker.check(endpoint)
+        #expect(result == .refused)
     }
 
     @Test func deadlineCompletes() async throws {
