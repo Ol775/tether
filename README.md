@@ -24,7 +24,8 @@ a file. Built with SwiftUI and Liquid Glass for macOS 26+.
 ## What it does
 
 - **Connects over the network** to Fire TV (Fire OS), Android TV and Android phones: Bonjour discovery,
-  wireless-pairing codes, or a manual IP address.
+  wireless-pairing codes, or a manual IP address. The Add Device sheet accepts pasted `IP:port` addresses,
+  supports manual pairing, and includes a cancellable TCP port check with troubleshooting guidance.
 - **Restore points.** Before every change Tether saves the app list and states, the APKs of anything it
   is about to remove, and the relevant settings. Revert any change in one click.
 - **Debloat** from a curated catalogue with risk tiers (Safe, Recommended, Advanced, Expert), a plain-English
