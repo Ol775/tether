@@ -1,0 +1,17 @@
+{
+ "tag_name": "v1.2.3",
+ "draft": false,
+ "prerelease": false,
+ "assets": [
+  {
+   "name": "source.zip",
+   "size": 10,
+   "browser_download_url": "https://github.com/o/r/releases/download/v1.2.3/source.zip"
+  },
+  {
+   "name": "notes.txt",
+   "size": 3,
+   "browser_download_url": "https://github.com/o/r/releases/download/v1.2.3/notes.txt"
+  }
+ ]
+}
