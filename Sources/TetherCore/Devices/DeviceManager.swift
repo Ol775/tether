@@ -43,7 +43,7 @@ public actor DeviceManager {
         Parsers.profile(serial: serial, getprop: try await adb.run(["shell", "getprop"], serial: serial))
     }
 
-    private static func endpoint(_ host: String, _ port: Int) throws -> String {
+    static func endpoint(_ host: String, _ port: Int) throws -> String {
         let ok = !host.isEmpty && host.count <= 253 && !host.hasPrefix("-")
             && host.unicodeScalars.allSatisfy { $0.isASCII && ($0.properties.isAlphabetic || ("0"..."9").contains($0) || $0 == "." || $0 == "-") }
         guard ok, (1...65535).contains(port) else { throw DeviceError.invalidHost }
