@@ -251,4 +251,24 @@ struct TizenChangeEngineTests {
             #expect(throws: (any Error).self) { try TizenChangeEngine.checkInstallOutput(bad) }
         }
     }
+
+    // MARK: native install-permit (no Tizen CLI)
+
+    /// With a local device-profile.xml, a signed install authorises the certificate by pushing it to the
+    /// TV's SDK tool path (reverse-engineered from `tizen install-permit`) — no CLI, no install-permit call.
+    @Test func nativePermitPushesDeviceProfileToTheSDKToolPath() async throws {
+        let r = try rig()   // capability fixture reports sdk_toolpath:/home/owner/sdk/tools
+        let profile = FileManager.default.temporaryDirectory.appendingPathComponent("dp-\(UUID().uuidString)/device-profile.xml")
+        try FileManager.default.createDirectory(at: profile.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try "<profile/>".write(to: profile, atomically: true, encoding: .utf8)
+        let engine = TizenChangeEngine(sdb: r.fake.runner, store: r.store,
+                                       log: ChangeLog(file: r.root.appendingPathComponent("n.jsonl")),
+                                       tizenCLI: nil, deviceProfile: profile)   // no CLI available at all
+        let jf = TizenAppID("jellyfin")!
+        let report = try await engine.apply([.installSigned(wgt: try wgt("jellyfin.wgt"), expectedApp: jf)], on: tv, reason: "jf")
+        #expect(report.applied.count == 1 && report.failed == nil && report.verified)
+        let calls = r.fake.calls()
+        #expect(calls.contains { $0 == "-s \(tv.serial) capability" })
+        #expect(calls.contains { $0 == "-s \(tv.serial) push \(profile.path) /home/owner/sdk/tools/device-profile.xml" })
+    }
 }

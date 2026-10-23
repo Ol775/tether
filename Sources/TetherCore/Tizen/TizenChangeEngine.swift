@@ -22,13 +22,18 @@ public actor TizenChangeEngine {
     private let store: TizenRestorePointStore
     private let log: ChangeLog
     private let tizenCLI: URL?
+    /// The active profile's local `device-profile.xml`. When set, signed installs authorise the developer
+    /// certificate natively (one `sdb push`, reverse-engineered from `tizen install-permit`) instead of the
+    /// Tizen CLI. When nil, the CLI's `install-permit` is used as a fallback.
+    private let deviceProfile: URL?
     private var active: Set<String> = []
 
-    public init(sdb: SDBRunner, store: TizenRestorePointStore, log: ChangeLog, tizenCLI: URL? = nil) {
+    public init(sdb: SDBRunner, store: TizenRestorePointStore, log: ChangeLog, tizenCLI: URL? = nil, deviceProfile: URL? = nil) {
         self.sdb = sdb
         self.store = store
         self.log = log
         self.tizenCLI = tizenCLI
+        self.deviceProfile = deviceProfile
     }
 
     public func apply(_ changes: [TizenChange], on device: TizenDevice, reason: String) async throws -> TizenReport {
@@ -108,9 +113,7 @@ public actor TizenChangeEngine {
                     }
                     if case .installSigned = change {
                         // A signed sideload needs the TV to trust this profile's certificate first.
-                        guard let cli = tizenCLI else { throw SDBError.toolsMissing }
-                        let permit = try await TizenCLI.run(cli, ["install-permit", "-s", device.serial], timeout: .seconds(60))
-                        guard permit.status == 0 else { throw SDBError.classify(code: permit.status, output: permit.err + permit.out) }
+                        try await permitInstall(on: device)
                     }
                     try await installPackage(file, appID: packageID, on: device)
                     known = try await relist(device, previously: known)
@@ -152,6 +155,28 @@ public actor TizenChangeEngine {
     /// The SDK's on-device staging directory that `vd_appinstall` reads from. A fixed filename is safe:
     /// `exclusive` serialises installs per TV, and it keeps spaces/encoding out of the pushed path.
     private static let stagingDir = "/home/owner/share/tmp/sdk_tools/tmp"
+
+    /// Authorise this profile's developer certificate so the TV accepts the signed package.
+    ///
+    /// `tizen install-permit` is not a special service — reverse-engineered from the Tizen CLI, it pushes the
+    /// active profile's `device-profile.xml` to the device's SDK tool path (`sdk_toolpath` from `sdb capability`;
+    /// `/home/developer` on pre-3.0 firmware). We do exactly that when a local `device-profile.xml` is known,
+    /// and fall back to the CLI otherwise.
+    private func permitInstall(on device: TizenDevice) async throws {
+        guard let deviceProfile else {
+            guard let cli = tizenCLI else { throw SDBError.toolsMissing }
+            let permit = try await TizenCLI.run(cli, ["install-permit", "-s", device.serial], timeout: .seconds(60))
+            guard permit.status == 0 else { throw SDBError.classify(code: permit.status, output: permit.err + permit.out) }
+            return
+        }
+        let capability = TizenParsers.capability(try await sdb.run(["capability"], serial: device.serial))
+        let target = (capability["sdk_toolpath"].map { $0.isEmpty ? nil : $0 } ?? nil) ?? "/home/developer"
+        let out = try await sdb.run(["push", deviceProfile.path, "\(target)/device-profile.xml"],
+                                    serial: device.serial, timeout: ADBRunner.transferTimeout)
+        guard out.lowercased().contains("pushed") else {
+            throw SDBError.commandFailed(code: 1, output: "Couldn't authorise the developer certificate on the TV: \(out)")
+        }
+    }
 
     /// Push the package, then trigger the platform installer by app id. This is what the `tizen` CLI
     /// does internally, minus its broken local staging step.
