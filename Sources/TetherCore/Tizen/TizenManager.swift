@@ -31,7 +31,13 @@ public actor TizenManager {
         let out = try await sdb.run(["connect", target])
         // sdb connect can exit 0 and still say it failed; the verdict is in the text.
         guard out.contains("connected to"), !out.contains("failed") else { throw SDBError.classify(code: 1, output: out) }
-        let device = try await profile(serial: target)
+        // Developer Mode off, a wrong host IP on the TV or a blocked model can all still print "connected": require the TV
+        // to be listed as ready and to tell us what it is.
+        guard let listed = TizenParsers.devices(try await sdb.run(["devices"])).first(where: { $0.serial == target }) else { throw SDBError.notConnected }
+        guard listed.state == "device" else { throw listed.state == "unauthorized" ? SDBError.developerModeOff : SDBError.notConnected }
+        let capability = TizenParsers.capability(try await sdb.run(["capability"], serial: target))
+        guard capability["model_name"] != nil else { throw SDBError.commandFailed(code: 0, output: "The TV connected but didn't report its model.") }
+        let device = TizenParsers.device(serial: target, capability: capability)
         if let year = device.modelYear, year < Self.oldestSupportedYear {
             _ = try? await sdb.run(["disconnect", target])
             throw TizenError.unsupportedModel(year: year)

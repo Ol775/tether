@@ -46,4 +46,16 @@ struct TizenManagerTests {
         let (_, m) = try rig(["capability.txt": "model_name:UN55NU8000\n"])
         #expect(try await m.devices().isEmpty)
     }
+
+    @Test func connectRequiresTheTVToBeListedAsReady() async throws {
+        let (_, m) = try rig(["devices.txt": ""])
+        await #expect(throws: SDBError.notConnected) { try await m.connect(host: "192.168.1.60") }
+        let (_, unauthorised) = try rig(["devices.txt": "192.168.1.60:26101\tunauthorized\tX\n"])
+        await #expect(throws: SDBError.developerModeOff) { try await unauthorised.connect(host: "192.168.1.60") }
+    }
+
+    @Test func connectRefusesATVThatReportsNoModel() async throws {
+        let (_, m) = try rig(["capability.txt": ""])
+        await #expect(throws: (any Error).self) { try await m.connect(host: "192.168.1.60") }
+    }
 }

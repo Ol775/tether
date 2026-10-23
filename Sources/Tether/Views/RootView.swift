@@ -28,7 +28,6 @@ struct RootView: View {
             }
         }
         .sheet(isPresented: $model.showPairing) { PairingSheet() }
-        .sheet(isPresented: $model.showTizenSetup) { TizenSetupSheet() }
         .sheet(item: $model.reportToShow) { ReportSheet(box: $0) }
         .sheet(item: $model.tizenReportToShow) { TizenReportSheet(box: $0) }
         .confirmationDialog("This TV has a new address", isPresented: Binding(get: { model.tizenAddressChangeRevert != nil }, set: { if !$0 { model.tizenAddressChangeRevert = nil } }), titleVisibility: .visible, presenting: model.tizenAddressChangeRevert) { rp in

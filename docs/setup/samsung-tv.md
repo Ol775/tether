@@ -21,6 +21,7 @@ Samsung TVs talk `sdb`, not `adb`, and the TV has to be put into Developer Mode 
 
 ## What it cannot do
 
+- A TV with no DUID that gets a new IP address looks like a new TV: its restore points and remembered locks stay under the old address.
 - Rooting, firmware changes or defeating Samsung's locks are out of scope.
 - TVs from before 2019 are refused.
 - Some 2023+ models are reported to refuse `sdb` connections even with Developer Mode on. If Connect says the TV
@@ -30,6 +31,7 @@ Samsung TVs talk `sdb`, not `adb`, and the TV has to be put into Developer Mode 
 ## Certificates
 
 Installing needs a Samsung certificate that includes this TV's DUID, created in Samsung's Certificate Manager (part of
-the tools Tether installs). Tether shows **Certificate ready**, **missing**, **not for this TV** or **can't tell** on the
+Tizen Studio; a command-line-only install may not include it, in which case install Samsung's certificate extension
+through Tizen's package manager or Tizen Studio). Tether shows **Certificate ready**, **missing**, **not for this TV** or **can't tell** on the
 Overview and Apps screens. Whether certificate creation can be scripted without Samsung's sign-in is unresolved and
 tracked in [tizen-device-checklist.md](../tizen-device-checklist.md).

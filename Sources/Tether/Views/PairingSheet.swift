@@ -117,6 +117,8 @@ struct PairingSheet: View {
             HStack { Spacer(); Button("Close") { dismiss() }.keyboardShortcut(.cancelAction) }
         }
         .padding(24).frame(width: 560)
+        // Presented from here: SwiftUI shows one sheet at a time, so a second sheet from the root view would never appear over this one.
+        .sheet(isPresented: Bindable(model).showTizenSetup) { TizenSetupSheet() }
         .task { for await endpoint in Discovery.stream() where !found.contains(endpoint) { found.append(endpoint) } }
     }
 

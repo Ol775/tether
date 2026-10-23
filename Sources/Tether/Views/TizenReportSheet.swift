@@ -15,6 +15,10 @@ struct TizenReportSheet: View {
                 .foregroundStyle(clean ? Color.green : Color.orange)
             Text(r.applied.isEmpty ? "Nothing was applied." : "Applied" + (r.verified ? ", confirmed on the TV:" : ", but couldn't confirm on the TV:"))
             list(r.applied.map(describe))
+            if !r.skipped.isEmpty {
+                Text("Already gone before this run, nothing sent:").foregroundStyle(.secondary)
+                list(r.skipped.map(describe))
+            }
             if !r.locked.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Locked by Samsung, left installed:").fontWeight(.medium)
@@ -40,7 +44,9 @@ struct TizenReportSheet: View {
                     Text("Tether only has packages for apps it installed itself. Samsung's own apps usually return through Smart Hub.").foregroundStyle(.secondary).font(.callout)
                 }
             }
-            Text("A restore point was saved before anything changed.").font(.callout).foregroundStyle(.secondary)
+            if !(r.applied.isEmpty && r.failed == nil && !r.cannotRestore.isEmpty) {   // that case is a revert that sent nothing, so none was saved
+                Text("A restore point was saved before anything changed.").font(.callout).foregroundStyle(.secondary)
+            }
             HStack {
                 Spacer()
                 if !r.applied.isEmpty || r.failed != nil {
@@ -58,7 +64,10 @@ struct TizenReportSheet: View {
         }
     }
 
-    private func name(for id: TizenAppID) -> String { model.tizenApps.first { $0.id == id }?.name ?? id.value }
+    // The restore point holds the names from before the change; the reloaded list no longer has removed apps.
+    private func name(for id: TizenAppID) -> String {
+        box.report.restorePoint.apps.first { $0.id == id }?.name ?? model.tizenApps.first { $0.id == id }?.name ?? id.value
+    }
 
     private func describe(_ change: TizenChange) -> String {
         switch change {

@@ -33,13 +33,15 @@ case "$cmd" in
   shell)
     set -- $*
     case "$*" in
-      "0 applist") list apps_list.txt ;;
+      "0 applist") if [[ -f $D/blank_applist ]]; then echo "error: closed"; else list apps_list.txt; fi ;;
       0\ vd_appuninstall\ *)
         [[ -f $D/no_vd ]] && { echo "unsupported: $*" >&2; exit 1; }
+        [[ -f $D/no_vd_exit0 ]] && { echo "sh: vd_appuninstall: not found"; exit 0; }
         mutating
         id=$3
         if has locked_apps.txt "$id"; then echo "can not uninstall app"
-        else grep -vF -- "'$id'" "$D/apps_list.txt" > "$D/apps_list.tmp"; mv "$D/apps_list.tmp" "$D/apps_list.txt"; echo "uninstalled $id"; fi ;;
+        else grep -vF -- "'$id'" "$D/apps_list.txt" > "$D/apps_list.tmp"; mv "$D/apps_list.tmp" "$D/apps_list.txt"; echo "uninstalled $id"
+          if [[ -f $D/blank_after_uninstall ]]; then : > "$D/blank_applist"; fi; fi ;;
       *) echo "unsupported: $*" >&2; exit 1 ;;
     esac ;;
   *) echo "unknown: $cmd" >&2; exit 1 ;;

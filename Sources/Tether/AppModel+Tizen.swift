@@ -38,12 +38,15 @@ extension AppModel {
     func reloadTizen() async throws {
         guard let tv = selectedTizen else { tizenApps = []; tizenRestorePoints = []; return }
         do {
-            tizenApps = TizenParsers.apps(try await sdb.run(["shell", "0", "applist"], serial: tv.serial))
-            tizenCatalog = try TizenCatalog.bundled()
-            tizenRestorePoints = await tizenStore.list().filter { $0.device.deviceID == tv.deviceID }
-            certificateState = await certificates.state(for: tv)
+            let apps = TizenParsers.apps(try await sdb.run(["shell", "0", "applist"], serial: tv.serial))
+            let catalog = try TizenCatalog.bundled()
+            let points = await tizenStore.list().filter { $0.device.deviceID == tv.deviceID }
+            let certificate = await certificates.state(for: tv)
+            // These awaits can be slow; if the user switched TVs meanwhile, this answer belongs to the old one.
+            guard selectedTizenSerial == tv.serial else { return }
+            tizenApps = apps; tizenCatalog = catalog; tizenRestorePoints = points; certificateState = certificate
         } catch {
-            tizenApps = []   // don't leave a stale picture of a TV we can no longer read
+            if selectedTizenSerial == tv.serial { tizenApps = [] }   // don't leave a stale picture of a TV we can no longer read
             throw error
         }
     }

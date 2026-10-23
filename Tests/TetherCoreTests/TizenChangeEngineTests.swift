@@ -114,4 +114,35 @@ struct TizenChangeEngineTests {
         #expect(report.applied == [.uninstall(a)] && !r0.has(a))
         #expect(r0.fake.lines("tizen.log").first == "uninstall -p org.example.alpha -t 192.168.1.60:26101")
     }
+
+    @Test func anEmptyAppListBeforeARemovalIsAFailedReadNotSuccess() async throws {
+        let r = try rig(["apps_list.txt": ""])
+        await #expect(throws: (any Error).self) { try await r.engine.apply([.uninstall(a)], on: tv, reason: "t") }
+        #expect(r.mutatingCalls().isEmpty)
+    }
+
+    @Test func anEmptyReReadAfterARemovalIsNotConfirmation() async throws {
+        let r = try rig(["blank_after_uninstall": ""])
+        let report = try await r.engine.apply([.uninstall(a), .uninstall(b)], on: tv, reason: "t")
+        #expect(report.applied.isEmpty && report.failed?.0 == .uninstall(a) && report.pending == [.uninstall(b)] && !report.verified)
+    }
+
+    @Test func anAppAlreadyMissingIsSkippedNotCountedAsApplied() async throws {
+        let r = try rig()
+        let ghost = TizenAppID("org.example.zzz")!
+        let report = try await r.engine.apply([.uninstall(ghost)], on: tv, reason: "t")
+        #expect(report.skipped == [.uninstall(ghost)] && report.applied.isEmpty)
+        #expect(r.mutatingCalls().isEmpty)
+    }
+
+    @Test func fallsBackWhenVdUninstallPrintsNotFoundWithExitZero() async throws {
+        let cli = FileManager.default.temporaryDirectory.appendingPathComponent("faketizen-\(UUID().uuidString)")
+        let r0 = try rig(["no_vd_exit0": ""])
+        let script = "#!/bin/bash\ngrep -vF -- \"'$3'\" '\(r0.fake.dir.path)/apps_list.txt' > '\(r0.fake.dir.path)/t.tmp'; mv '\(r0.fake.dir.path)/t.tmp' '\(r0.fake.dir.path)/apps_list.txt'\n"
+        try script.write(to: cli, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: cli.path)
+        let engine = TizenChangeEngine(sdb: r0.fake.runner, store: r0.store, log: ChangeLog(file: r0.root.appendingPathComponent("c.jsonl")), tizenCLI: cli)
+        let report = try await engine.apply([.uninstall(a)], on: tv, reason: "t")
+        #expect(report.applied == [.uninstall(a)] && report.locked.isEmpty && !r0.has(a))
+    }
 }

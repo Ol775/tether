@@ -20,9 +20,10 @@
 
 9. **Locks are reported, never counted.** A removal the TV accepts but does not perform (exit 0, app still listed) is
    reported as locked, remembered per TV, and never counted as applied.
-10. **Tizen tools are verified before they run.** The installer is fetched over https from one host, redirects to
+10. **Samsung's bootstrap installer is verified before it runs.** It is fetched over https from one host, redirects to
     another host or plain http are refused, and its SHA-256 must match the pinned value before it is made executable.
-    Samsung publishes no checksum, so the pin reflects the file as downloaded when it was written.
+    Samsung publishes no checksum, so the pin reflects the file as downloaded when it was written. Whatever that
+    installer and Samsung's package manager download afterwards is Samsung's and is **not** verified by Tether.
 11. **App ids and package paths are validated** (letters, digits, `.` `_` `-`, no leading `.` or `-`; installs must be an
     existing `.wgt`/`.tpk`), and arguments are always passed as an array, never a shell string.
 12. **Restore is honest.** Tether only reinstalls apps it installed itself and says so for the rest.

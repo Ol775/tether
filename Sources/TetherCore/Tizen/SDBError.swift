@@ -22,7 +22,7 @@ public enum SDBError: Error, Equatable, Sendable {
         let text = output.lowercased()
         if text.contains("failed to connect") || text.contains("connection refused") || text.contains("unable to connect") { return .refused }
         if text.contains("developer mode") { return .developerModeOff }
-        if text.contains("closed") || text.contains("device offline") || text.contains("no devices") || text.contains("not found") { return .notConnected }
+        if text.contains("closed") || text.contains("device offline") || text.contains("no devices") || (text.contains("device") && text.contains("not found")) { return .notConnected }
         return .commandFailed(code: code, output: output.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 }

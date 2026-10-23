@@ -25,4 +25,9 @@ struct SDBRunnerTests {
         let closed = try FakeSDB(files: ["force_error": "error: closed\n"])
         await #expect(throws: SDBError.notConnected) { try await closed.runner.run(["devices"]) }
     }
+
+    @Test func aMissingShellCommandIsNotReportedAsADisconnect() {
+        #expect(SDBError.classify(code: 1, output: "sh: vd_appuninstall: not found") == .commandFailed(code: 1, output: "sh: vd_appuninstall: not found"))
+        #expect(SDBError.classify(code: 1, output: "error: device '192.168.1.60:26101' not found") == .notConnected)
+    }
 }

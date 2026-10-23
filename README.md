@@ -34,7 +34,7 @@ a file. Built with SwiftUI and Liquid Glass for macOS 26+.
 - **Apps:** drop an `.apk`, or paste a GitHub repository to install its latest release (ABI-matched,
   size- and checksum-verified).
 - **Console:** raw `adb shell` with a guard: read-only commands run, everything else asks first.
-- **Samsung TVs (Tizen, 2019+)** over `sdb`: list apps, remove what the TV allows (locked apps are shown as locked),
+- **Samsung TVs (Tizen, 2019+)** over `sdb` (**untested on a real TV so far**): list apps, remove what the TV allows (locked apps are shown as locked),
   install signed `.wgt` packages, restore points and revert. Samsung's tools are downloaded on first use after you
   accept their licence; they are never bundled. See [Samsung TV setup](docs/setup/samsung-tv.md).
 
