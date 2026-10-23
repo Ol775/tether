@@ -1,0 +1,8 @@
+# ASSUMED FORMAT; the parser takes the last token as the app id and the rest as the name.
+Application List for user 5001
+Name                 AppID
+'Netflix'            'org.example.netflix'
+'Prime Video'        'org.example.prime'
+'Smart Hub'          'org.tizen.smarthub'
+'Bad;rm -rf'         'a;rm'
+'Jellyfin'           'AprZAARz4r.Jellyfin'

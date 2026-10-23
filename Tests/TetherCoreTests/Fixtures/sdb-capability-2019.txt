@@ -1,0 +1,8 @@
+# ASSUMED FORMAT; 2019 model with the shell enabled.
+secure_protocol:enabled
+intershell_support:enabled
+sdbd_rootperm:disabled
+platform_version:5.0
+profile_name:tv
+duid:
+model_name:UE50RU7100

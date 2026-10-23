@@ -1,0 +1,4 @@
+List of devices attached 
+192.168.1.60:26101	device	QE55Q80AAT
+192.168.1.61:26101	offline	UE50RU7100
+192.168.1.62:26101	unauthorized	X

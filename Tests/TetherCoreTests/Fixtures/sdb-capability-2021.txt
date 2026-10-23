@@ -1,0 +1,17 @@
+# ASSUMED FORMAT (key:value per line, as printed by `sdb capability`); verify on a real TV.
+secure_protocol:enabled
+intershell_support:disabled
+filesync_support:pushpull
+usbproto_support:none
+sdbd_rootperm:disabled
+rootonoff_support:disabled
+platform_version:6.0
+product_version:6.0
+sdbd_report_version:3.0.0
+sdbd_plugin_version:1.0.0
+cpu_arch:armv7
+sdk_toolpath:/home/owner/sdk/tools
+profile_name:tv
+vendor_name:Samsung
+duid:DUIDTESTVALUE123
+model_name:QE55Q80AAT
