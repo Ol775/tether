@@ -1,0 +1,5 @@
+* daemon not running; starting now at tcp:5038
+* daemon started successfully
+List of devices attached
+192.168.1.5:5555       device product:mdarcy model:AFTMM device:mdarcy transport_id:1
+R5CT1234ABC            unauthorized transport_id:2

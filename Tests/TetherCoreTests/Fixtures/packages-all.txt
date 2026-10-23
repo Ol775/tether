@@ -1,0 +1,4 @@
+package:com.amazon.recess
+package:com.android.settings
+package:com.amazon.removed
+package:com.amazon.off
