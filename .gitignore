@@ -4,3 +4,7 @@ build/
 .build/
 .DS_Store
 dist/
+
+# Local-only working notes (contain private TV identifiers; never commit)
+/CLAUDE.md
+/HANDOVER.md
