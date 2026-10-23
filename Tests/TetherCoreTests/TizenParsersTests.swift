@@ -33,7 +33,7 @@ struct TizenParsersTests {
     }
 
     @Test func hostileAppIDsAreRejected() {
-        for bad in ["a;rm", "../x", "", String(repeating: "a", count: 129), "has space", "x`y`", "a$(b)"] {
+        for bad in ["a;rm", "../x", "", String(repeating: "a", count: 129), "has space", "x`y`", "a$(b)", ".", "..", ".hidden", "-rf", "--help"] {
             #expect(TizenAppID(bad) == nil, "\(bad)")
         }
         #expect(TizenAppID("AprZAARz4r.Jellyfin") != nil && TizenAppID("org.tizen.smarthub") != nil)

@@ -6,7 +6,8 @@ public struct TizenAppID: Hashable, Codable, Sendable, Comparable, CustomStringC
     public let value: String
 
     public init?(_ raw: String) {
-        guard (1...128).contains(raw.count),
+        // No leading "." or "-": ids become folder names (".." would escape the store) and sdb arguments (options).
+        guard (1...128).contains(raw.count), !raw.hasPrefix("."), !raw.hasPrefix("-"),
               raw.unicodeScalars.allSatisfy({ $0.isASCII && ($0.properties.isAlphabetic || ("0"..."9").contains($0) || "._-".unicodeScalars.contains($0)) })
         else { return nil }
         value = raw
