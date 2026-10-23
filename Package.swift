@@ -9,11 +9,19 @@ let package = Package(
         .executable(name: "Tether", targets: ["Tether"]),
     ],
     targets: [
-        .target(name: "TetherCore", resources: [.process("Resources")]),
+        .target(
+            name: "CTizenXML",
+            linkerSettings: [.linkedLibrary("xml2")]
+        ),
+        .target(
+            name: "TetherCore",
+            dependencies: ["CTizenXML"],
+            resources: [.process("Resources")]
+        ),
         .executableTarget(name: "Tether", dependencies: ["TetherCore"]),
         .testTarget(
             name: "TetherCoreTests",
-            dependencies: ["TetherCore"],
+            dependencies: ["TetherCore", "CTizenXML"],
             resources: [.copy("Fixtures")]
         ),
     ]
