@@ -80,15 +80,18 @@ struct WidgetSignerTests {
         let dir = try sampleWidget()
         let out = FileManager.default.temporaryDirectory.appendingPathComponent("signed-\(UUID().uuidString).wgt")
         try WidgetSigner.sign(packageDir: dir, author: try testIdentity(), distributor: try testIdentity(), output: out)
-        let author = try String(contentsOf: dir.appendingPathComponent("author-signature.xml"), encoding: .utf8)
-
+        // base64 is wrapped at 76 in the output, so compare with whitespace removed.
+        func stripped(_ u: String) throws -> String {
+            try String(contentsOf: dir.appendingPathComponent(u), encoding: .utf8).filter { !$0.isWhitespace }
+        }
+        let author = try stripped("author-signature.xml")
         for (uri, file) in [("config.xml", "config.xml"), ("index.html", "index.html"), ("js/app.js", "js/app.js")] {
             let d = Data(SHA512.hash(data: try Data(contentsOf: dir.appendingPathComponent(file))))
             #expect(author.contains("URI=\"\(uri)\""))
             #expect(author.contains("<DigestValue>\(d.base64EncodedString())</DigestValue>"))
         }
         // The distributor signature must reference the author signature's raw bytes.
-        let dist = try String(contentsOf: dir.appendingPathComponent("signature1.xml"), encoding: .utf8)
+        let dist = try stripped("signature1.xml")
         let authorDigest = Data(SHA512.hash(data: try Data(contentsOf: dir.appendingPathComponent("author-signature.xml")))).base64EncodedString()
         #expect(dist.contains("URI=\"author-signature.xml\""))
         #expect(dist.contains("<DigestValue>\(authorDigest)</DigestValue>"))

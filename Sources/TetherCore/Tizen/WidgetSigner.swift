@@ -72,38 +72,37 @@ public enum WidgetSigner {
         let propC14N = try canonicalize(propWrapper, xpath: "(//*[@Id='prop'])[1]", mode: TETHER_C14N_1_1)
         let propDigest = Self.sha512Base64(propC14N)
 
-        // SignedInfo: a Reference per file (raw bytes, sha512) plus the #prop reference (c14n11 transform).
-        var refsXML = ""
+        // SignedInfo: a Reference per file (raw bytes, sha512) plus the #prop reference (c14n 1.1 transform).
+        // The serialisation reproduces Samsung's signer byte-for-byte — a newline between every element,
+        // DigestValue inline, SignatureValue and certificates newline-padded, no XML declaration, base64
+        // wrapped at 76. The TV's validator rejects any other layout ("Invalid format of certificate in
+        // signature"); matching it makes the output identical to a `tizen package`-signed package.
+        var refs = ""
         for ref in references {
-            refsXML +=
-                "<Reference URI=\"\(ref.uri)\">"
-                + "<DigestMethod Algorithm=\"http://www.w3.org/2001/04/xmlenc#sha512\"></DigestMethod>"
-                + "<DigestValue>\(ref.digest)</DigestValue></Reference>"
+            refs += "<Reference URI=\"\(ref.uri)\">\n"
+                + "<DigestMethod Algorithm=\"http://www.w3.org/2001/04/xmlenc#sha512\"></DigestMethod>\n"
+                + "<DigestValue>\(ref.digest)</DigestValue>\n</Reference>\n"
         }
-        refsXML +=
-            "<Reference URI=\"#prop\"><Transforms>"
-            + "<Transform Algorithm=\"http://www.w3.org/2006/12/xml-c14n11\"></Transform></Transforms>"
-            + "<DigestMethod Algorithm=\"http://www.w3.org/2001/04/xmlenc#sha512\"></DigestMethod>"
-            + "<DigestValue>\(propDigest)</DigestValue></Reference>"
-        let signedInfo =
-            "<SignedInfo>"
-            + "<CanonicalizationMethod Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"></CanonicalizationMethod>"
-            + "<SignatureMethod Algorithm=\"http://www.w3.org/2001/04/xmldsig-more#rsa-sha512\"></SignatureMethod>"
-            + refsXML + "</SignedInfo>"
+        refs += "<Reference URI=\"#prop\">\n<Transforms>\n"
+            + "<Transform Algorithm=\"http://www.w3.org/2006/12/xml-c14n11\"></Transform>\n</Transforms>\n"
+            + "<DigestMethod Algorithm=\"http://www.w3.org/2001/04/xmlenc#sha512\"></DigestMethod>\n"
+            + "<DigestValue>\(propDigest)</DigestValue>\n</Reference>\n"
+        let signedInfo = "<SignedInfo>\n"
+            + "<CanonicalizationMethod Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"></CanonicalizationMethod>\n"
+            + "<SignatureMethod Algorithm=\"http://www.w3.org/2001/04/xmldsig-more#rsa-sha512\"></SignatureMethod>\n"
+            + refs + "</SignedInfo>"
 
         // Sign the exclusively-canonicalised SignedInfo (as it sits inside the Signature element).
         let siWrapper = "<Signature xmlns=\"\(dsigNS)\">\(signedInfo)</Signature>"
         let siC14N = try canonicalize(siWrapper, xpath: "(//*[local-name()='SignedInfo'])[1]", mode: TETHER_C14N_EXCLUSIVE)
         let signatureValue = try rsaSHA512(siC14N, key: key)
 
-        let certsXML = certsDER.map { "<X509Certificate>\(Self.base64($0))</X509Certificate>" }.joined()
-        return "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>\n"
-            + "<Signature xmlns=\"\(dsigNS)\" Id=\"\(id)\">"
-            + signedInfo
-            + "<SignatureValue>\(Self.base64(signatureValue))</SignatureValue>"
-            + "<KeyInfo><X509Data>\(certsXML)</X509Data></KeyInfo>"
-            + objectXML
-            + "</Signature>"
+        let certs = certsDER.map { "<X509Certificate>\n\(Self.base64($0))\n</X509Certificate>" }.joined(separator: "\n")
+        return "<Signature xmlns=\"\(dsigNS)\" Id=\"\(id)\">\n"
+            + signedInfo + "\n"
+            + "<SignatureValue>\n\(Self.base64(signatureValue))\n</SignatureValue>\n"
+            + "<KeyInfo>\n<X509Data>\n\(certs)\n</X509Data>\n</KeyInfo>\n"
+            + objectXML + "\n</Signature>"
     }
 
     // MARK: Crypto
@@ -140,7 +139,14 @@ public enum WidgetSigner {
     // MARK: Digests / canonicalisation
 
     private static func sha512Base64(_ data: Data) -> String { base64(Data(SHA512.hash(data: data))) }
-    private static func base64(_ data: Data) -> String { data.base64EncodedString() }
+
+    /// Base64 wrapped at 76 columns with `\n`, matching Samsung's signer. Tizen's on-device validator
+    /// rejects an unwrapped single-line certificate ("Invalid format of certificate in signature"), so
+    /// every embedded blob (certificates, signature, digests) is wrapped.
+    private static func base64(_ data: Data) -> String {
+        let b64 = Array(data.base64EncodedString())
+        return stride(from: 0, to: b64.count, by: 76).map { String(b64[$0..<min($0 + 76, b64.count)]) }.joined(separator: "\n")
+    }
 
     private static func canonicalize(_ xml: String, xpath: String, mode: Int32) throws -> Data {
         var outLen: Int32 = 0
