@@ -2,7 +2,8 @@
 public enum TweakLibrary {
     public static func available(for platform: Platform, snapshot: DeviceSnapshot) -> [Tweak] {
         var all = [animations, privateDNS, screenTimeout, screensaver, limitAdTracking]
-        if let physical = snapshot.physicalDensity { all.append(density(physical: physical)) }
+        // The value comes from the device; only trust a plausible one (same bounds Change.setDensity enforces).
+        if let physical = snapshot.physicalDensity, (72...960).contains(physical) { all.append(density(physical: physical)) }
         return all.filter { $0.platforms.contains(platform) }
     }
 

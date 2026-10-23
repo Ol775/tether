@@ -70,4 +70,11 @@ struct TweakTests {
             }
         }
     }
+
+    @Test func absurdPhysicalDensityDropsTheTweakInsteadOfCrashing() {
+        for hostile in [Int.max, 9_000_000_000_000_000_000, 50, 5000, 0, -1] {
+            let ids = TweakLibrary.available(for: .android, snapshot: snapshot(physical: hostile)).map(\.id)
+            #expect(!ids.contains("density"), "\(hostile)")
+        }
+    }
 }
