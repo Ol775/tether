@@ -1,0 +1,7 @@
+secure_protocol:enabled
+intershell_support:disabled
+sdbd_rootperm:disabled
+platform_version:5.5
+profile_name:tv
+duid:DEMODUID0123456789
+model_name:QN65Q80TAFXZA

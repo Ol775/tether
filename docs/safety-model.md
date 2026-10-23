@@ -15,3 +15,15 @@
 7. **Downloads are checked.** https only, size must match, and GitHub's SHA-256 digest is verified when present.
 8. **Catalogue refresh cannot lower a risk tier.** Signature verification is still to do and must land before refresh
    is switched on anywhere.
+
+## Samsung TVs
+
+9. **Locks are reported, never counted.** A removal the TV accepts but does not perform (exit 0, app still listed) is
+   reported as locked, remembered per TV, and never counted as applied.
+10. **Tizen tools are verified before they run.** The installer is fetched over https from one host, redirects to
+    another host or plain http are refused, and its SHA-256 must match the pinned value before it is made executable.
+    Samsung publishes no checksum, so the pin reflects the file as downloaded when it was written.
+11. **App ids and package paths are validated** (letters, digits, `.` `_` `-`, no leading `.` or `-`; installs must be an
+    existing `.wgt`/`.tpk`), and arguments are always passed as an array, never a shell string.
+12. **Restore is honest.** Tether only reinstalls apps it installed itself and says so for the rest.
+

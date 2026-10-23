@@ -1,0 +1,6 @@
+'Netflix'  '3201907018807'
+'Prime Video'  '3201512006785'
+'YouTube'  '111299001912'
+'Samsung TV Plus'  'demo.tvplus'
+'Gallery'  'demo.gallery'
+'Jellyfin'  'AprZAARz4r.Jellyfin'

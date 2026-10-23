@@ -13,7 +13,7 @@ struct RootView: View {
             DetailRouter()
                 .navigationTitle((model.selected?.model ?? model.selectedTizen?.model).map { "\($0) · \(model.section.title)" } ?? "Tether")
         }
-        .inspector(isPresented: Binding(get: { model.showInspector && model.section == .debloat }, set: { model.showInspector = $0 })) {
+        .inspector(isPresented: Binding(get: { model.showInspector && model.section == .debloat && model.selectedTizen == nil }, set: { model.showInspector = $0 })) {
             InspectorView().inspectorColumnWidth(min: 260, ideal: 320, max: 400)
         }
         .toolbar {

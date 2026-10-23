@@ -124,7 +124,6 @@ final class AppModel {
     let tizenEngine: TizenChangeEngine
     let tools: SamsungTools
     let certificates: TizenCertificates
-    let tizenOverride: Bool
     let supportDir: URL
 
     init() {
@@ -140,15 +139,15 @@ final class AppModel {
         section = Pane(rawValue: env["TETHER_PANE"] ?? "") ?? .overview   // lets scripts/screenshots.sh open each pane
         catalogStore = CatalogStore(overrideDir: supportDir)
 
-        let samsungHome = supportDir.appendingPathComponent("samsung")
+        // TETHER_SAMSUNG_HOME lets the demo point at a folder holding scripted tools instead of Samsung's.
+        let samsungHome = env["TETHER_SAMSUNG_HOME"].map { URL(fileURLWithPath: $0) } ?? supportDir.appendingPathComponent("samsung")
         tools = SamsungTools(home: samsungHome)
-        tizenOverride = env["TETHER_SDB"] != nil   // demo/tests point at a scripted sdb instead of Samsung's tools
-        sdb = SDBRunner(executable: env["TETHER_SDB"].map { URL(fileURLWithPath: $0) } ?? samsungHome.appendingPathComponent("tizen-studio/tools/sdb"))
+        sdb = SDBRunner(executable: samsungHome.appendingPathComponent("tizen-studio/tools/sdb"))
         tizenManager = TizenManager(sdb: sdb)
         tizenStore = TizenRestorePointStore(root: supportDir.appendingPathComponent("TizenRestorePoints"))
         tizenEngine = TizenChangeEngine(sdb: sdb, store: tizenStore, log: log, tizenCLI: samsungHome.appendingPathComponent("tizen-studio/tools/ide/bin/tizen"))
         certificates = TizenCertificates(tools: tools)
-        tizenToolsReady = tizenOverride || tools.isInstalled
+        tizenToolsReady = tools.isInstalled
         lockedByDevice = Self.loadLocked(supportDir.appendingPathComponent("tizen-locked.json"))
     }
 

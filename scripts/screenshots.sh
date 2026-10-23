@@ -5,8 +5,9 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 ./scripts/bundle.sh >/dev/null
 mkdir -p docs/images
-for pane in overview debloat tweaks apps backups console; do
-  TETHER_PANE=$pane demo/run.sh build/Tether.app/Contents/MacOS/Tether >/dev/null 2>&1 &
+capture() {  # capture <pane> <output name> [env assignment]
+  pane=$1; name=$2
+  env ${3:-TETHER_NONE=1} TETHER_PANE=$pane demo/run.sh build/Tether.app/Contents/MacOS/Tether >/dev/null 2>&1 &
   pid=$!
   id=""
   for _ in $(seq 30); do
@@ -16,7 +17,10 @@ for pane in overview debloat tweaks apps backups console; do
   done
   [[ -n $id ]] || { kill "$pid" 2>/dev/null; echo "no window for pane $pane" >&2; exit 1; }
   sleep 2   # let the demo device load
-  screencapture -x -o -l "$id" "docs/images/$pane.png"
+  screencapture -x -o -l "$id" "docs/images/$name.png"
   kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true
-  echo "captured $pane"
-done
+  echo "captured $name"
+}
+
+for pane in overview debloat tweaks apps backups console; do capture "$pane" "$pane"; done
+for pane in overview debloat apps; do capture "$pane" "tizen-$pane" TETHER_TIZEN_DEMO=1; done

@@ -71,7 +71,7 @@ struct TizenRow: View {
                 Image(systemName: "tv").frame(width: 22)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(tv.model).fontWeight(isSelected ? .semibold : .regular)
-                    Text(tv.modelYear.map { "Samsung · \($0)" } ?? "Samsung").font(.caption).foregroundStyle(.secondary)
+                    Text(verbatim: tv.modelYear.map { "Samsung · \($0)" } ?? "Samsung").font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
                 Circle().fill(.green).frame(width: 7, height: 7).accessibilityHidden(true)

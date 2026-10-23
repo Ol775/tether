@@ -15,6 +15,19 @@ SwiftPM package. `TetherCore` holds all logic and has no UI; `Tether` is a thin 
 | `GitHubRelease`, `Installer` | ABI-aware release asset choice, verified download, install |
 | `ConsoleGuard`, `Console` | Allowlist guard for raw shell |
 
+Samsung TVs (slice B) run a parallel pipeline in `TetherCore/Tizen`:
+
+| Unit | Responsibility |
+|---|---|
+| `ProcessRunner` | Shared child-process runner (temp-file output, timeout, cancellation) used by `ADBRunner` and `SDBRunner` |
+| `SDBRunner`, `SDBError` | Runs Samsung's `sdb`; typed errors with a next step |
+| `TizenParsers`, `TizenAppID`, `TizenDevice` | `sdb` output parsers, validated app ids, model year from the model code |
+| `TizenManager` | Connect (reads the text, not just the exit code), list TVs, refuse pre-2019 models |
+| `TizenChangeEngine`, `TizenRestorePointStore` | Restore point first, uninstall/install, verify by re-reading, report locked apps; reverts reinstall apps Tether installed |
+| `TizenCatalog` | Validated list with a per-model-year removability hint |
+| `SamsungTools` | Downloads Samsung's installer on first use: https, same-host redirects only, pinned SHA-256 checked before it runs |
+| `TizenCertificates` | Reads the certificate profile state; creation is guided through Samsung's Certificate Manager |
+
 `Sources/Tether` holds `AppModel` (the observable bridge) and the views. Tests drive the real pipeline against
 `Tests/TetherCoreTests/Fixtures/fake-adb`, a scripted stand-in for `adb`; the same stub backs `demo/run.sh`.
 
