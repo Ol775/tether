@@ -1,1 +1,161 @@
-{"entries": []}
+{
+  "version": 1,
+  "entries": [
+    {
+      "package": "com.facebook.appmanager",
+      "vendors": [
+        "samsung"
+      ],
+      "tier": "safe",
+      "title": "Facebook App Manager",
+      "description": "Preinstalled Facebook helper that runs in the background to manage and update Facebook apps.",
+      "source": "common community debloat lists; not yet verified on device"
+    },
+    {
+      "package": "com.facebook.services",
+      "vendors": [
+        "samsung"
+      ],
+      "tier": "recommended",
+      "title": "Facebook Services",
+      "description": "Preinstalled Facebook background service used for app installs and updates.",
+      "source": "common community debloat lists; not yet verified on device"
+    },
+    {
+      "package": "com.facebook.system",
+      "vendors": [
+        "samsung"
+      ],
+      "tier": "recommended",
+      "title": "Facebook Installer",
+      "description": "Preinstalled stub that lets Facebook install and update itself without the store.",
+      "source": "common community debloat lists; not yet verified on device"
+    },
+    {
+      "package": "com.samsung.android.arzone",
+      "vendors": [
+        "samsung"
+      ],
+      "tier": "safe",
+      "title": "AR Zone",
+      "description": "Samsung's augmented-reality app hub (AR Emoji, AR Doodle).",
+      "source": "common community debloat lists; not yet verified on device"
+    },
+    {
+      "package": "com.samsung.android.bixby.agent",
+      "vendors": [
+        "samsung"
+      ],
+      "tier": "recommended",
+      "title": "Bixby Voice",
+      "description": "Samsung's voice assistant.",
+      "breaks": "Bixby voice commands and the Bixby button stop working.",
+      "source": "common community debloat lists; not yet verified on device"
+    },
+    {
+      "package": "com.miui.analytics",
+      "vendors": [
+        "xiaomi",
+        "redmi",
+        "poco"
+      ],
+      "tier": "recommended",
+      "title": "MIUI Analytics",
+      "description": "Xiaomi's usage-data collection service.",
+      "source": "common community debloat lists; not yet verified on device"
+    },
+    {
+      "package": "com.miui.msa.global",
+      "vendors": [
+        "xiaomi",
+        "redmi",
+        "poco"
+      ],
+      "tier": "recommended",
+      "title": "MSA (MIUI System Ads)",
+      "description": "Xiaomi's system advertising service that shows ads inside system apps.",
+      "source": "common community debloat lists; not yet verified on device"
+    },
+    {
+      "package": "com.amazon.imdb.tv.android.app",
+      "vendors": [
+        "amazon"
+      ],
+      "platforms": [
+        "fireOS"
+      ],
+      "tier": "safe",
+      "title": "Freevee / IMDb TV",
+      "description": "Amazon's ad-supported streaming app.",
+      "source": "common community debloat lists; not yet verified on device"
+    },
+    {
+      "package": "com.amazon.bueller.music",
+      "vendors": [
+        "amazon"
+      ],
+      "platforms": [
+        "fireOS"
+      ],
+      "tier": "safe",
+      "title": "Amazon Music",
+      "description": "Amazon Music app for Fire TV.",
+      "source": "common community debloat lists; not yet verified on device"
+    },
+    {
+      "package": "com.amazon.bueller.photos",
+      "vendors": [
+        "amazon"
+      ],
+      "platforms": [
+        "fireOS"
+      ],
+      "tier": "safe",
+      "title": "Amazon Photos",
+      "description": "Amazon Photos app and screensaver source for Fire TV.",
+      "source": "common community debloat lists; not yet verified on device"
+    },
+    {
+      "package": "com.amazon.amazonvideo.livingroom",
+      "vendors": [
+        "amazon"
+      ],
+      "platforms": [
+        "fireOS"
+      ],
+      "tier": "advanced",
+      "title": "Prime Video",
+      "description": "The Prime Video app.",
+      "breaks": "Prime Video playback, and Prime content shown on the Fire TV home screen.",
+      "source": "common community debloat lists; not yet verified on device"
+    },
+    {
+      "package": "com.amazon.dcp",
+      "vendors": [
+        "amazon"
+      ],
+      "platforms": [
+        "fireOS"
+      ],
+      "tier": "expert",
+      "title": "Amazon Device Client Platform",
+      "description": "Core Amazon account, registration and system-update service.",
+      "breaks": "Amazon sign-in, store access and system updates; can leave the device unable to register.",
+      "source": "common community debloat lists; not yet verified on device"
+    },
+    {
+      "package": "com.amazon.tv.launcher",
+      "vendors": [
+        "amazon"
+      ],
+      "platforms": [
+        "fireOS"
+      ],
+      "tier": "expert",
+      "title": "Fire TV Home",
+      "description": "The stock Fire TV launcher.",
+      "breaks": "The home screen. Only remove after installing and setting a replacement launcher.",
+      "source": "common community debloat lists; not yet verified on device"
+    }
+  ]
+}
