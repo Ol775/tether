@@ -8,6 +8,14 @@ a file. Built with SwiftUI and Liquid Glass for macOS 26+.
 
 ![Debloat](docs/images/debloat.png)
 
+> ## ⚠️ Beta: use at your own risk
+>
+> Tether changes settings and **removes apps on your devices**. It saves a restore point first and most changes can be
+> undone, but this is beta software that has **not been tested on real hardware by anyone but its author**. A mistake can
+> leave a device misbehaving, and Samsung and Amazon firmware can differ from what Tether expects. Only use it on devices
+> you own and can recover, read the safety notes below, and expect rough edges. It comes with no warranty
+> (see [LICENSE](LICENSE)).
+
 > **Status: pre-release.** The core is covered by automated tests against a scripted fake `adb`,
 > but it has **not yet been run on real hardware**. Work through
 > [docs/device-checklist.md](docs/device-checklist.md) (and [docs/tizen-device-checklist.md](docs/tizen-device-checklist.md)
