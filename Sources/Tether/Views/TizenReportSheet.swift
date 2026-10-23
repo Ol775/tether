@@ -72,7 +72,7 @@ struct TizenReportSheet: View {
     private func describe(_ change: TizenChange) -> String {
         switch change {
         case .uninstall(let id): "remove \(name(for: id))"
-        case .install(let file): "install \(file.lastPathComponent)"
+        case .install(let file), .installSigned(let file, _): "install \(file.lastPathComponent)"
         }
     }
 }

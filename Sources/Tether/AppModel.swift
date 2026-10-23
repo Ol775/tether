@@ -107,6 +107,10 @@ final class AppModel {
     var restorePoints: [RestorePoint] = []
     var thirdPartyApps: [PackageName] = []
     var isBusy = false
+    var jellyfinProgress: String?
+    var jellyfinCanCancel = false
+    var jellyfinOperation: Task<Void, Never>?
+    var jellyfinOperationID = UUID()
     var alert: AppAlert?
     var reportToShow: ReportBox?
     var toast: Toast?
@@ -120,12 +124,12 @@ final class AppModel {
     /// A restore point made at a different address; held until the user confirms it is the same device.
     var addressChangeRevert: RestorePoint?
 
-    private let adb: ADBRunner
+    let adb: ADBRunner
     private let deviceManager: DeviceManager
-    private let store: RestorePointStore
+    let store: RestorePointStore
     private let engine: ChangeEngine
-    private let log: ChangeLog
-    private let installer: Installer
+    let log: ChangeLog
+    let installer: Installer
     private let catalogStore: CatalogStore
     let sdb: SDBRunner
     let tizenManager: TizenManager

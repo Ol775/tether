@@ -97,12 +97,26 @@ public actor TizenChangeEngine {
                         applied.append(change)
                         await log.append("\(device.serial): uninstalled \(id)")
                     }
-                case .install(let file):
+                case .install(let file), .installSigned(let file, _):
+                    let expectedApp: TizenAppID?
+                    if case .installSigned(_, let id) = change {
+                        expectedApp = id
+                        guard let cli = tizenCLI else { throw SDBError.toolsMissing }
+                        let permit = try await TizenCLI.run(cli, ["install-permit", "-s", device.serial], timeout: .seconds(60))
+                        guard permit.status == 0 else { throw SDBError.classify(code: permit.status, output: permit.err + permit.out) }
+                    } else { expectedApp = nil }
                     let before = Set(known.map(\.id))
-                    _ = try await sdb.run(["install", file.path], serial: device.serial, timeout: ADBRunner.transferTimeout)
+                    let output = try await sdb.run(["install", file.path], serial: device.serial, timeout: ADBRunner.transferTimeout)
+                    try Self.checkInstallOutput(output)
                     known = try await relist(device, previously: known)
+                    if let expectedApp {
+                        guard known.contains(where: { $0.id == expectedApp }) else {
+                            throw SDBError.commandFailed(code: 1, output: "The TV did not confirm the expected app id after installation.")
+                        }
+                        try await store.saveWGT(file, for: expectedApp)
+                    }
                     let added = known.map(\.id).filter { !before.contains($0) }
-                    if added.count == 1 { try await store.saveWGT(file, for: added[0]) }   // keep the signed package so a later removal can be undone
+                    if expectedApp == nil && added.count == 1 { try await store.saveWGT(file, for: added[0]) }   // keep the signed package so a later removal can be undone
                     applied.append(change)
                     await log.append("\(device.serial): installed \(file.lastPathComponent)")
                 }
@@ -119,10 +133,18 @@ public actor TizenChangeEngine {
         let verified = after.map { snap in
             !snap.isEmpty && applied.allSatisfy { change in
                 if case .uninstall(let id) = change { return !snap.contains { $0.id == id } }
+                if case .installSigned(_, let id) = change { return snap.contains { $0.id == id } }
                 return true
             }
         } ?? false
         return TizenReport(restorePoint: rp, applied: applied, skipped: skipped, failed: failed, pending: pending, locked: locked, cannotRestore: [], verified: verified)
+    }
+
+    static func checkInstallOutput(_ output: String) throws {
+        let lower = output.lowercased()
+        let failure = ["error:", "failed", "cannot install", "can not install", "permission denied"].contains { lower.contains($0) }
+        let success = ["installed", "install completed", "success"].contains { lower.contains($0) }
+        guard success && !failure else { throw SDBError.classify(code: 1, output: output) }
     }
 
     /// Re-reads the app list after a change. An empty list when there were apps a moment ago is a failed read, not a result.
@@ -148,7 +170,7 @@ public actor TizenChangeEngine {
         }
         if missing {
             guard let cli = tizenCLI else { throw SDBError.toolsMissing }
-            let r = try await TizenCLI.run(cli, ["uninstall", "-p", id.value, "-t", device.serial], timeout: .seconds(60))
+            let r = try await TizenCLI.run(cli, ["uninstall", "-p", id.value, "-s", device.serial], timeout: .seconds(60))
             guard r.status == 0 else { throw SDBError.classify(code: r.status, output: r.err + r.out) }
         }
     }

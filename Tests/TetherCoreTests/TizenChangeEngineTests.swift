@@ -112,7 +112,7 @@ struct TizenChangeEngineTests {
         let engine = TizenChangeEngine(sdb: r0.fake.runner, store: r0.store, log: ChangeLog(file: r0.root.appendingPathComponent("c.jsonl")), tizenCLI: cli)
         let report = try await engine.apply([.uninstall(a)], on: tv, reason: "t")
         #expect(report.applied == [.uninstall(a)] && !r0.has(a))
-        #expect(r0.fake.lines("tizen.log").first == "uninstall -p org.example.alpha -t 192.168.1.60:26101")
+        #expect(r0.fake.lines("tizen.log").first == "uninstall -p org.example.alpha -s 192.168.1.60:26101")
     }
 
     @Test func anEmptyAppListBeforeARemovalIsAFailedReadNotSuccess() async throws {
@@ -144,5 +144,71 @@ struct TizenChangeEngineTests {
         let engine = TizenChangeEngine(sdb: r0.fake.runner, store: r0.store, log: ChangeLog(file: r0.root.appendingPathComponent("c.jsonl")), tizenCLI: cli)
         let report = try await engine.apply([.uninstall(a)], on: tv, reason: "t")
         #expect(report.applied == [.uninstall(a)] && report.locked.isEmpty && !r0.has(a))
+    }
+
+    // MARK: installSigned
+
+    /// Fake `tizen` CLI: logs its arguments; `permitFail` makes install-permit fail.
+    func permitCLI(_ r: Rig, failing: Bool = false) throws -> URL {
+        let cli = FileManager.default.temporaryDirectory.appendingPathComponent("faketizen-\(UUID().uuidString)")
+        let script = "#!/bin/bash\necho \"$*\" >> '\(r.fake.dir.path)/tizen.log'\n" + (failing ? "echo 'permit denied' >&2; exit 1\n" : "")
+        try script.write(to: cli, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: cli.path)
+        return cli
+    }
+
+    func signedEngine(_ r: Rig, cli: URL?) -> TizenChangeEngine {
+        TizenChangeEngine(sdb: r.fake.runner, store: r.store, log: ChangeLog(file: r.root.appendingPathComponent("s.jsonl")), tizenCLI: cli)
+    }
+
+    @Test func installSignedSnapshotsThenPermitsThenInstallsOnTheExactSerial() async throws {
+        let r = try rig()
+        let jf = TizenAppID("jellyfin")!
+        let report = try await signedEngine(r, cli: try permitCLI(r)).apply([.installSigned(wgt: try wgt("jellyfin.wgt"), expectedApp: jf)], on: tv, reason: "jf")
+        #expect(report.applied.count == 1 && report.failed == nil && report.verified)
+        #expect(r.fake.lines("tizen.log") == ["install-permit -s 192.168.1.60:26101"])
+        let points = await r.store.list(), cached = await r.store.wgt(for: jf)
+        #expect(points.count == 1 && cached != nil)
+        #expect(r.fake.lines("installs.log").count == 1 && !r.fake.calls().contains { $0.contains("uninstall") })
+    }
+
+    @Test func aFailedPermitPreventsTheInstallButKeepsTheRestorePoint() async throws {
+        let r = try rig()
+        let jf = TizenAppID("jellyfin")!
+        let report = try await signedEngine(r, cli: try permitCLI(r, failing: true)).apply([.installSigned(wgt: try wgt("jellyfin.wgt"), expectedApp: jf)], on: tv, reason: "jf")
+        #expect(report.applied.isEmpty && report.failed != nil && !r.has(jf))
+        let points = await r.store.list()
+        #expect(r.fake.lines("installs.log").isEmpty && points.count == 1)
+    }
+
+    @Test func installSignedWithoutTheTizenCLIFailsBeforeAnySDBInstall() async throws {
+        let r = try rig()
+        let report = try await signedEngine(r, cli: nil).apply([.installSigned(wgt: try wgt("jellyfin.wgt"), expectedApp: TizenAppID("jellyfin")!)], on: tv, reason: "jf")
+        #expect(report.failed?.1 == .toolsMissing && r.fake.lines("installs.log").isEmpty)
+    }
+
+    @Test func aWrongExpectedIDIsAFailureAndNothingIsCached() async throws {
+        let r = try rig()
+        let other = TizenAppID("somethingelse")!
+        let report = try await signedEngine(r, cli: try permitCLI(r)).apply([.installSigned(wgt: try wgt("jellyfin.wgt"), expectedApp: other)], on: tv, reason: "jf")
+        let cached = await r.store.wgt(for: other)
+        #expect(report.applied.isEmpty && report.failed != nil && cached == nil)
+    }
+
+    @Test func anExitZeroInstallFailureIsReported() async throws {
+        let r = try rig(["force_install_failure": ""])
+        let jf = TizenAppID("jellyfin")!
+        let report = try await signedEngine(r, cli: try permitCLI(r)).apply([.installSigned(wgt: try wgt("jellyfin.wgt"), expectedApp: jf)], on: tv, reason: "jf")
+        let cached = await r.store.wgt(for: jf)
+        #expect(report.applied.isEmpty && report.failed != nil && cached == nil)
+    }
+
+    @Test func anUpdateOfAnAlreadyInstalledAppStillCachesThePackage() async throws {
+        let jf = TizenAppID("jellyfin")!
+        let r = try rig(["apps_list.txt": "'Alpha'  'org.example.alpha'\n'Jellyfin'  'jellyfin'\n"])
+        let report = try await signedEngine(r, cli: try permitCLI(r)).apply([.installSigned(wgt: try wgt("jellyfin.wgt"), expectedApp: jf)], on: tv, reason: "jf")
+        let cached = await r.store.wgt(for: jf)
+        #expect(report.applied.count == 1 && report.verified && cached != nil)
+        #expect(!r.fake.calls().contains { $0.contains("uninstall") })
     }
 }

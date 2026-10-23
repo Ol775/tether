@@ -87,4 +87,16 @@ struct TizenCertificatesTests {
     @Test func everyStateHasPlainAdvice() {
         for s in [CertificateState.ready, .missing, .notForThisTV, .toolsMissing, .unknown, .checkFailed] { #expect(!s.advice.isEmpty) }
     }
+
+    @Test func checkProfileAcceptsAnActiveNamedProfile() async throws {
+        let listing = "Loaded in '/p/profiles.xml'.\nName\nSamsungTV\nCurrent active profile: SamsungTV"
+        try await TizenCertificates(tools: try tools(listing: listing)).checkProfile(named: "SamsungTV")
+    }
+
+    @Test func checkProfileRejectsUnknownAndInactiveProfiles() async throws {
+        let listing = "Name\nSamsungTV\nOther\nCurrent active profile: Other"
+        let certs = TizenCertificates(tools: try tools(listing: listing))
+        await #expect(throws: CertificateProfileError.profileNotFound("Nope")) { try await certs.checkProfile(named: "Nope") }
+        await #expect(throws: CertificateProfileError.notActive("SamsungTV", active: "Other")) { try await certs.checkProfile(named: "SamsungTV") }
+    }
 }

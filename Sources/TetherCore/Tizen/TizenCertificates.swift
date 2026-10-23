@@ -44,6 +44,18 @@ public struct TizenCertificates: Sendable {
         return ids.contains(device.deviceID) ? .ready : .notForThisTV
     }
 
+    /// Jellyfin builds sign with `package -s <name>` but `install-permit` uses the SDK's active profile, so the two must agree.
+    /// The active profile is only compared when the CLI reports one; an unreported one is left to Samsung's own install check.
+    public func checkProfile(named name: String) async throws {
+        guard let cli = tools.tizenCLI else { throw SDBError.toolsMissing }
+        guard let r = try? await TizenCLI.run(cli, ["security-profiles", "list"]), r.status == 0 else { throw CertificateProfileError.unreadable }
+        let lines = r.out.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }
+        guard lines.contains(where: { $0 == name || $0.hasPrefix(name + " ") }) else { throw CertificateProfileError.profileNotFound(name) }
+        if let active = lines.first(where: { $0.lowercased().hasPrefix("current active profile:") })?
+            .dropFirst("current active profile:".count).trimmingCharacters(in: .whitespaces),
+           !active.isEmpty, active != name { throw CertificateProfileError.notActive(name, active: active) }
+    }
+
     /// Registers the user's existing profile file; certificate keys and passwords stay in Samsung's files.
     public func useProfilesFile(_ file: URL) async throws {
         guard let cli = tools.tizenCLI else { throw SDBError.toolsMissing }
@@ -65,10 +77,13 @@ public struct TizenCertificates: Sendable {
 }
 
 public enum CertificateProfileError: LocalizedError, Equatable, Sendable {
-    case invalidFile, configurationFailed
+    case invalidFile, configurationFailed, unreadable, profileNotFound(String), notActive(String, active: String)
     public var errorDescription: String? {
         switch self {
         case .invalidFile: "Choose a valid profiles.xml containing a named signing profile. Import .p12 files using Samsung Certificate Manager."
+        case .unreadable: "Tether couldn't read the Samsung signing profiles. Open certificate setup and check the Samsung tools."
+        case .profileNotFound(let name): "No Samsung signing profile named “\(name)” exists. Check the name in Certificate Manager."
+        case .notActive(let name, let active): "“\(name)” is not the active Samsung profile (“\(active)”). Make it active in Certificate Manager so installation uses the same certificate."
         case .configurationFailed: "Samsung's tools couldn't select that profile file. Check it in Certificate Manager, then try again."
         }
     }

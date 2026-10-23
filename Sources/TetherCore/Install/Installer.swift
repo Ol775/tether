@@ -36,7 +36,7 @@ public actor Installer {
         return asset
     }
 
-    private func download(_ asset: ReleaseAsset, into dir: URL) async throws -> URL {
+    public func download(_ asset: ReleaseAsset, into dir: URL) async throws -> URL {
         guard asset.url.scheme == "https" else { throw GitHubError.insecureURL }
         let (temp, response) = try await session.download(from: asset.url)
         defer { try? FileManager.default.removeItem(at: temp) }

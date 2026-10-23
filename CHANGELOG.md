@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added official Jellyfin installers on the Apps page. Fire TV / Android TV: verified stable release APK installed over the existing app (data kept). Samsung: builds official Jellyfin Web and jellyfin-tizen on this Mac, signs with your Samsung profile, checks the package declares `AprZAARz4r.Jellyfin`, then installs it. Update and reinstall never uninstall the app.
+- Samsung installs now fail on error text even when `sdb` exits 0; the profile used for signing must exist and be the SDK's active profile.
+- Fixed the `tizen uninstall` fallback to pass the TV with `-s`. Cancelling or timing out a build now stops the whole process tree.
+
 - Added Samsung certificate setup, selecting existing profiles and refreshing status; fixed the CLI launcher when the SDK path contains spaces.
 
 - Redesigned the Mac app icon with a silver and blue interlocking connection mark.

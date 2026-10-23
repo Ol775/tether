@@ -28,6 +28,7 @@ case "$cmd" in
   capability) list capability.txt ;;
   install)
     mutating; echo "install $*" >> "$D/installs.log"
+    [[ -f $D/force_install_failure ]] && { echo "failed[-11]: install failed"; exit 0; }
     id=$(basename "${!#}" | sed 's/\.[a-z]*$//')
     grep -qF -- "'$id'" "$D/apps_list.txt" 2>/dev/null || echo "'$id'  '$id'" >> "$D/apps_list.txt"
     echo "installed" ;;

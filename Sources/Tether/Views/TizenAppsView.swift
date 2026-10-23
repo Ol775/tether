@@ -13,6 +13,8 @@ struct TizenAppsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
+                JellyfinInstallerView()
+
                 Text("Install an app").font(.headline)
                 CertificateStatusView()
                 HStack(spacing: 12) {

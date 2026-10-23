@@ -31,6 +31,15 @@ struct TizenOverviewView: View {
                     .background(.quaternary.opacity(0.4), in: .rect(cornerRadius: 12))
 
                     CertificateStatusView()
+                    DisclosureGroup("Samsung system customisation") {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("SDB root capability: \(tv.rootAvailable ? "reported by firmware" : "unavailable")")
+                            Text("Locked preinstalled apps and boot-logo replacement are not supported through the current developer-mode connection.")
+                            Text("Third-party root projects depend on the exact model and firmware. A disabled SDB root flag does not establish whether a separate exploit would work. Tether does not run exploits.")
+                            Link("Root project compatibility and limitations", destination: URL(string: "https://github.com/chris-ritsen/samsung-tv-root#tv-compatibility")!)
+                            Link("Untethered fork (boot-time persistence, different firmware tested)", destination: URL(string: "https://github.com/levkropp/samsung-tv-root-untethered")!)
+                        }.font(.callout).foregroundStyle(.secondary).padding(.top, 8)
+                    }
                     Text("A restore point is saved automatically before every change.").font(.callout).foregroundStyle(.secondary)
                 }
                 .padding(28)
