@@ -91,6 +91,7 @@ final class AppModel {
         log = ChangeLog(file: supportDir.appendingPathComponent("changes.jsonl"))
         engine = ChangeEngine(adb: adb, store: store, log: log)
         installer = Installer(adb: adb)
+        section = Pane(rawValue: env["TETHER_PANE"] ?? "") ?? .overview   // lets scripts/screenshots.sh open each pane
         catalogStore = CatalogStore(overrideDir: supportDir)
     }
 
