@@ -30,7 +30,7 @@ public actor ADBRunner {
         let errH = try FileHandle(forWritingTo: errURL)
         defer { try? outH.close(); try? errH.close() }
 
-        nonisolated(unsafe) let process = Process()
+        let process = Process()
         process.executableURL = exe
         process.arguments = args
         process.standardOutput = outH

@@ -29,7 +29,7 @@ public enum Discovery {
                 browser.start(queue: queue)
                 return browser
             }
-            nonisolated(unsafe) let held = browsers
+            let held = browsers
             continuation.onTermination = { _ in held.forEach { $0.cancel() } }
         }
     }

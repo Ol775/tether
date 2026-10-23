@@ -69,7 +69,8 @@ public enum GitHubRelease {
         switch http?.statusCode ?? 0 {
         case 200: break
         case 404: throw GitHubError.notFound
-        case 403, 429 where http?.value(forHTTPHeaderField: "x-ratelimit-remaining") == "0":
+        case 403 where http?.value(forHTTPHeaderField: "x-ratelimit-remaining") == "0",
+             429 where http?.value(forHTTPHeaderField: "x-ratelimit-remaining") == "0":
             throw GitHubError.rateLimited(resetsAt: http?.value(forHTTPHeaderField: "x-ratelimit-reset").flatMap(TimeInterval.init).map(Date.init(timeIntervalSince1970:)))
         case let code: throw GitHubError.badResponse(code)
         }

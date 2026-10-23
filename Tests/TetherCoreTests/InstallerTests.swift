@@ -73,6 +73,14 @@ struct InstallerTests {
         }
     }
 
+    @Test func plainForbiddenIsNotReportedAsRateLimit() async throws {
+        let owner = "fb\(Int.random(in: 1000...9999))"
+        StubURLProtocol.stub(URL(string: "https://api.github.com/repos/\(owner)/r/releases/latest")!, .init(status: 403, body: Data()))
+        await #expect(throws: GitHubError.badResponse(403)) {
+            try await GitHubRelease.latest(owner: owner, repo: "r", session: StubURLProtocol.session)
+        }
+    }
+
     @Test func notFoundThrows() async throws {
         await #expect(throws: GitHubError.notFound) {
             try await GitHubRelease.latest(owner: "nobody\(Int.random(in: 1000...9999))", repo: "r", session: StubURLProtocol.session)
