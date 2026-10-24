@@ -40,7 +40,7 @@ extension AppModel {
         }
     }
 
-    func startJellyfinTizen(version: String, profile: String, revision: String?, reinstall: Bool) {
+    func startJellyfinTizen(version: String, profile: String, password: String, revision: String?, reinstall: Bool) {
         guard let tv = selectedTizen, let cache = jellyfinCache, !isBusy else { return }
         beginJellyfin()
         let operationID = jellyfinOperationID
@@ -54,9 +54,16 @@ extension AppModel {
                 } else {
                     guard let cli = tools.tizenCLI else { throw SDBError.toolsMissing }
                     try await certificates.checkProfile(named: profile)
+                    guard !password.isEmpty else { throw JellyfinError.buildFailed("Enter your Samsung certificate password to sign the package.") }
+                    guard let certs = certificates.activeProfileFiles() else {
+                        throw JellyfinError.buildFailed("Couldn't find the active Samsung certificate. Set one up in certificate setup first.")
+                    }
+                    let author = WidgetSigner.Identity(p12: try Data(contentsOf: certs.author), password: password)
+                    let distributor = WidgetSigner.Identity(p12: try Data(contentsOf: certs.distributor), password: password)
                     let commit: String
                     if let revision { commit = revision } else { commit = try await Jellyfin.tizenRevision() }
-                    build = try await JellyfinTizenBuilder(cli: cli).build(version: version, commit: commit, profile: profile, cache: cache) { [weak self] message in
+                    build = try await JellyfinTizenBuilder(cli: cli).build(version: version, commit: commit, profile: profile, cache: cache,
+                                                                           author: author, distributor: distributor) { [weak self] message in
                         Task { @MainActor in
                             guard let self, self.jellyfinOperationID == operationID else { return }
                             self.jellyfinProgress = message

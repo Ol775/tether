@@ -11,6 +11,7 @@ struct JellyfinInstallerView: View {
     @State private var revision: String?
     @State private var webVersion = ""
     @State private var profile = ""
+    @State private var password = ""
     @State private var confirmingBuild = false
     @State private var lastChecked: Date?
 
@@ -24,6 +25,7 @@ struct JellyfinInstallerView: View {
         if !model.tizenToolsReady { "Set up the Samsung tools first." }
         else if Jellyfin.stableVersion(webVersion) == nil { "Enter a stable Jellyfin Web version such as 10.10.7." }
         else if profile.trimmingCharacters(in: .whitespaces).isEmpty { "Enter the name of your Samsung certificate profile." }
+        else if password.isEmpty { "Enter your Samsung certificate password to sign the package." }
         else { nil }
     }
     private var androidUpToDate: Bool {
@@ -65,9 +67,9 @@ struct JellyfinInstallerView: View {
                 if samsung {
                     Button(installed ? "Build and update…" : "Build and install…") { confirmingBuild = true }
                         .buttonStyle(.glassProminent)
-                        .disabled(disabled || Jellyfin.stableVersion(webVersion) == nil || profile.trimmingCharacters(in: .whitespaces).isEmpty || !model.tizenToolsReady)
+                        .disabled(disabled || buildBlocker != nil)
                     if installed {
-                        Button("Reinstall saved build") { model.startJellyfinTizen(version: "", profile: "", revision: nil, reinstall: true) }
+                        Button("Reinstall saved build") { model.startJellyfinTizen(version: "", profile: "", password: "", revision: nil, reinstall: true) }
                             .disabled(disabled || saved == nil)
                     }
                 } else {
@@ -85,13 +87,13 @@ struct JellyfinInstallerView: View {
         .background(.quaternary.opacity(0.4), in: .rect(cornerRadius: 12))
         .task(id: deviceKey) {
             error = nil; latestVersion = nil; revision = nil; installedVersion = nil; installedAndroid = nil; lastChecked = nil
-            webVersion = saved?.webVersion ?? ""; profile = saved?.profile ?? ""
+            webVersion = saved?.webVersion ?? ""; profile = saved?.profile ?? ""; password = ""
             if !samsung { await readAndroidStatus() }
         }
         .onChange(of: model.isBusy) { if !model.isBusy && !samsung { Task { await readAndroidStatus() } } }
         .confirmationDialog("Build and install Jellyfin?", isPresented: $confirmingBuild, titleVisibility: .visible) {
             Button("Build, sign and install") {
-                model.startJellyfinTizen(version: webVersion, profile: profile.trimmingCharacters(in: .whitespacesAndNewlines), revision: revision, reinstall: false)
+                model.startJellyfinTizen(version: webVersion, profile: profile.trimmingCharacters(in: .whitespacesAndNewlines), password: password, revision: revision, reinstall: false)
             }
             Button("Cancel", role: .cancel) {}
         } message: {
@@ -118,6 +120,11 @@ struct JellyfinInstallerView: View {
                     TextField("Profile name from Certificate Manager", text: $profile).textFieldStyle(.roundedBorder)
                         .accessibilityLabel("Active Samsung certificate profile")
                 }
+            }.disabled(disabled)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Samsung certificate password").font(.callout)
+                SecureField("Password for your author/distributor certificate", text: $password).textFieldStyle(.roundedBorder)
+                    .accessibilityLabel("Samsung certificate password")
             }.disabled(disabled)
             Text("Requires Git, Node.js 20+, npm and Tizen Studio. Set the named certificate profile active in Certificate Manager and include this TV. Choose the Web version matching your server; the latest may differ.")
                 .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)

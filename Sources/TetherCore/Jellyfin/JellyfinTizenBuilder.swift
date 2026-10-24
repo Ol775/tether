@@ -17,12 +17,9 @@ public struct JellyfinTizenBuilder: Sendable {
     private let cli: URL
     public init(cli: URL) { self.cli = cli }
 
-    static func steps(root: URL, version: String, commit: String, profile: String) throws -> [Step] {
+    static func steps(root: URL, version: String, commit: String) throws -> [Step] {
         guard let version = Jellyfin.stableVersion(version) else { throw JellyfinError.invalidVersion }
         guard Jellyfin.validCommit(commit) else { throw JellyfinError.invalidCommit }
-        guard !profile.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, !profile.contains("\n") else {
-            throw JellyfinError.buildFailed("Choose a Samsung TV certificate profile first.")
-        }
         let web = root.appendingPathComponent("jellyfin-web")
         let tizen = root.appendingPathComponent("jellyfin-tizen")
         return [
@@ -36,7 +33,7 @@ public struct JellyfinTizenBuilder: Sendable {
             Step("Building Jellyfin Web (this can take several minutes)…", .npm, ["run", "build:production"], web, ["USE_SYSTEM_FONTS": "1"]),
             Step("Building the Tizen interface…", .npm, ["ci", "--no-audit", "--no-fund"], tizen, ["JELLYFIN_WEB_DIR": web.appendingPathComponent("dist").path]),
             Step("Building the TV application…", .tizen, ["build-web", "-e", ".*", "-e", "gulpfile.babel.js", "-e", "README.md", "-e", "node_modules/*", "-e", "package*.json", "-e", "yarn.lock", "--", tizen.path], tizen),
-            Step("Signing with your Samsung TV profile…", .tizen, ["package", "-t", "wgt", "-s", profile, "-o", root.path, "--", tizen.appendingPathComponent(".buildResult").path], tizen),
+            // Signing is done natively by WidgetSigner after the build, not by `tizen package`.
         ]
     }
 
@@ -51,9 +48,10 @@ public struct JellyfinTizenBuilder: Sendable {
     }
 
     public func build(version: String, commit: String, profile: String, cache: URL,
+                      author: WidgetSigner.Identity, distributor: WidgetSigner.Identity,
                       progress: @escaping @Sendable (String) -> Void) async throws -> JellyfinBuild {
         let work = FileManager.default.temporaryDirectory.appendingPathComponent("tether-jellyfin-\(UUID())")
-        let plan = try Self.steps(root: work, version: version, commit: commit, profile: profile)
+        let plan = try Self.steps(root: work, version: version, commit: commit)
         let npm = try Self.tool("npm")
         let node = try Self.tool("node")
         let git = try Self.tool("git")
@@ -85,8 +83,12 @@ public struct JellyfinTizenBuilder: Sendable {
             }
         }
         try Task.checkCancellation()
+        // Sign natively (no `tizen package`): WidgetSigner signs .buildResult and writes the .wgt.
+        progress("Signing Jellyfin with your Samsung TV certificate…")
         let built = work.appendingPathComponent("Jellyfin.wgt")
-        guard FileManager.default.fileExists(atPath: built.path) else { throw JellyfinError.buildFailed("Samsung's tools didn't produce Jellyfin.wgt.") }
+        let buildResult = work.appendingPathComponent("jellyfin-tizen/.buildResult")
+        try WidgetSigner.sign(packageDir: buildResult, author: author, distributor: distributor, output: built)
+        guard FileManager.default.fileExists(atPath: built.path) else { throw JellyfinError.buildFailed("Signing didn't produce Jellyfin.wgt.") }
         let config = try await ProcessRunner.run(URL(fileURLWithPath: "/usr/bin/unzip"), ["-p", built.path, "config.xml"], timeout: .seconds(30))
         guard config.status == 0, Self.declaresJellyfin(config.out) else {
             throw JellyfinError.buildFailed("The signed package isn't the official Jellyfin app (\(Jellyfin.tizenID.value)), so it was not installed.")

@@ -48,6 +48,8 @@ public actor SamsungTools {
 
     public nonisolated var sdb: URL? { executable("tools/sdb") }
     public nonisolated var tizenCLI: URL? { executable("tools/ide/bin/tizen") }
+    /// The SDK's signing-profiles file (default location; a `cli-config` override is not followed).
+    public nonisolated var profilesFile: URL { home.appendingPathComponent("tizen-studio-data/profile/profiles.xml") }
     public nonisolated var certificateManager: URL? {
         let app = root.appendingPathComponent("tools/certificate-manager/Certificate-manager.app")
         return Bundle(url: app)?.executableURL != nil ? app : nil

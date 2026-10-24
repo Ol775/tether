@@ -74,6 +74,46 @@ public struct TizenCertificates: Sendable {
         parser.delegate = reader
         return parser.parse() && reader.hasProfile
     }
+
+    /// The active signing profile's certificate files: author and distributor `.p12`, and the
+    /// `device-profile.xml` beside the author key (used for native install-permit). Nil if no profiles file
+    /// or active profile with both keys. Native signing and native permit both key off these.
+    public func activeProfileFiles() -> ProfileFiles? {
+        guard let data = try? Data(contentsOf: tools.profilesFile) else { return nil }
+        let reader = ProfileFilesReader()
+        let parser = XMLParser(data: data)
+        parser.shouldResolveExternalEntities = false
+        parser.delegate = reader
+        guard parser.parse(), let author = reader.author, let distributor = reader.distributor else { return nil }
+        let authorURL = URL(fileURLWithPath: author)
+        return ProfileFiles(author: authorURL,
+                            distributor: URL(fileURLWithPath: distributor),
+                            deviceProfile: authorURL.deletingLastPathComponent().appendingPathComponent("device-profile.xml"))
+    }
+}
+
+public struct ProfileFiles: Sendable {
+    public let author: URL
+    public let distributor: URL
+    public let deviceProfile: URL
+}
+
+/// Reads the active profile's author (distributor="0") and distributor (distributor="1") key paths.
+private final class ProfileFilesReader: NSObject, XMLParserDelegate {
+    private var active: String?
+    private var inActive = false
+    var author: String?
+    var distributor: String?
+    func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName: String?, attributes a: [String: String]) {
+        switch elementName {
+        case "profiles": active = a["active"]
+        case "profile": inActive = a["name"] != nil && a["name"] == active
+        case "profileitem" where inActive:
+            guard let key = a["key"], !key.isEmpty else { return }
+            if a["distributor"] == "0" { author = key } else if a["distributor"] == "1" { distributor = key }
+        default: break
+        }
+    }
 }
 
 public enum CertificateProfileError: LocalizedError, Equatable, Sendable {

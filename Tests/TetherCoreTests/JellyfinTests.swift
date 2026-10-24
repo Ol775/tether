@@ -29,13 +29,15 @@ struct JellyfinTests {
         let root = URL(fileURLWithPath: "/tmp/build with spaces")
         let commit = String(repeating: "a", count: 40)
         for version in ["master", "1.2.3;rm", "../x", "--help"] {
-            #expect(throws: (any Error).self) { try JellyfinTizenBuilder.steps(root: root, version: version, commit: commit, profile: "TV") }
+            #expect(throws: (any Error).self) { try JellyfinTizenBuilder.steps(root: root, version: version, commit: commit) }
         }
-        #expect(throws: (any Error).self) { try JellyfinTizenBuilder.steps(root: root, version: "1.2.3", commit: "master", profile: "TV") }
-        let steps = try JellyfinTizenBuilder.steps(root: root, version: "v1.2.3", commit: commit, profile: "My TV")
+        #expect(throws: (any Error).self) { try JellyfinTizenBuilder.steps(root: root, version: "1.2.3", commit: "master") }
+        let steps = try JellyfinTizenBuilder.steps(root: root, version: "v1.2.3", commit: commit)
         #expect(steps.first?.arguments.contains("https://github.com/jellyfin/jellyfin-web.git") == true)
         #expect(steps.contains { $0.arguments == ["fetch", "--depth", "1", "origin", commit] })
-        #expect(steps.last?.arguments.contains("My TV") == true)
+        // Signing is native now; the last step builds the TV app, and no `tizen package`/profile step remains.
+        #expect(steps.last?.arguments.contains("build-web") == true)
+        #expect(!steps.contains { $0.arguments.contains("package") })
         #expect(steps.contains { $0.environment["JELLYFIN_WEB_DIR"] == "/tmp/build with spaces/jellyfin-web/dist" })
         #expect(!steps.contains { $0.arguments.contains("uninstall") })
     }

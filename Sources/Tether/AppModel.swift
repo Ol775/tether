@@ -158,8 +158,12 @@ final class AppModel {
         sdb = SDBRunner(executable: samsungHome.appendingPathComponent("tizen-studio/tools/sdb"))
         tizenManager = TizenManager(sdb: sdb)
         tizenStore = TizenRestorePointStore(root: supportDir.appendingPathComponent("TizenRestorePoints"))
-        tizenEngine = TizenChangeEngine(sdb: sdb, store: tizenStore, log: log, tizenCLI: samsungHome.appendingPathComponent("tizen-studio/tools/ide/bin/tizen"))
         certificates = TizenCertificates(tools: tools)
+        // The active profile's device-profile.xml lets the engine authorise the certificate natively
+        // (one sdb push) instead of the Tizen CLI's install-permit; nil falls back to the CLI.
+        tizenEngine = TizenChangeEngine(sdb: sdb, store: tizenStore, log: log,
+                                        tizenCLI: samsungHome.appendingPathComponent("tizen-studio/tools/ide/bin/tizen"),
+                                        deviceProfile: certificates.activeProfileFiles()?.deviceProfile)
         tizenToolsReady = tools.isInstalled
         if let demo = env["TETHER_DEMO_UPDATE"], Updater.isPlainVersion(demo) {   // lets scripts/screenshots show the banner; its button has nothing to download
             updateStatus = .available(UpdateInfo(version: demo, notes: "Demo"))
