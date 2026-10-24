@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.0 (2026-10-24)
+
+- Samsung app installs no longer use Samsung's Tizen command-line tools for signing or certificate authorisation. Tether signs the widget itself (a native W3C widget signature, identical to what Tizen Studio produces) and authorises the certificate on the TV directly, so the Jellyfin build and install run without the Tizen CLI or Device Manager. The Jellyfin installer now asks for your Samsung certificate password, used only to sign and never stored.
+
 ## 0.2.0 (2026-10-23)
 
 - Samsung app installs now run entirely over `sdb` — push the signed package, then `vd_appinstall` by the app id read from the package itself — instead of Tizen Studio's `install` command, which fails to stage packages on this toolchain and left retail TVs reporting only "Failed to install". No Device Manager or Tizen CLI install step is involved. Fixes installing Jellyfin and other signed apps on real Samsung TVs.
