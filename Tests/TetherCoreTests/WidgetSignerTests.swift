@@ -8,6 +8,9 @@ import CTizenXML
 /// Verifies the native signer produces a well-formed, cryptographically valid W3C widget signature pair.
 /// Uses a throwaway RSA key generated per run (never the real Samsung cert), so it proves structure and
 /// the sign/verify maths; conformance to a real `tizen`-signed package was proven out of band.
+/// Serialised: SecPKCS12Import touches the keychain and is unreliable under Swift Testing's parallel
+/// execution (intermittent errSec failures). Production signs once, serially, so this only affects tests.
+@Suite(.serialized)
 struct WidgetSignerTests {
 
     /// A sample widget: top-level files plus a nested one, to exercise recursion and relative URIs.
@@ -32,6 +35,7 @@ struct WidgetSignerTests {
         let key = d.appendingPathComponent("k.pem"), crt = d.appendingPathComponent("c.pem"), p12 = d.appendingPathComponent("id.p12")
         try openssl(["genpkey", "-algorithm", "RSA", "-pkeyopt", "rsa_keygen_bits:2048", "-out", key.path])
         try openssl(["req", "-x509", "-new", "-key", key.path, "-days", "3", "-subj", "/CN=TetherTest", "-out", crt.path])
+        // /usr/bin/openssl is LibreSSL; its default p12 is already the legacy format the Security framework imports.
         try openssl(["pkcs12", "-export", "-inkey", key.path, "-in", crt.path, "-out", p12.path, "-passout", "pass:test"])
         return WidgetSigner.Identity(p12: try Data(contentsOf: p12), password: "test")
     }
