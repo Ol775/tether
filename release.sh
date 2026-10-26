@@ -18,7 +18,9 @@ key="${SIGNING_KEY:-$HOME/.config/tether/signing.key}"
 [ -f "$key" ] || { echo "No signing key at $key. Releases must be signed (see scripts/sign-tool.swift)."; exit 1; }
 [ -z "$(git status --porcelain)" ] || { echo "Commit your changes first."; exit 1; }
 git fetch -q origin main; [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || { echo "Push main first."; exit 1; }
-gh release view "v$ver" --repo Ol775/tether >/dev/null 2>&1 && { echo "v$ver is already released. Bump VERSION."; exit 1; }
+# A published v$ver blocks (bump VERSION); a CI-created draft is finalized below; none → create fresh.
+state=$(gh release view "v$ver" --repo Ol775/tether --json isDraft -q .isDraft 2>/dev/null) || state="none"
+[ "$state" = "false" ] && { echo "v$ver is already released. Bump VERSION."; exit 1; }
 mkdir -p build
 echo "Running the test suite (log: build/release-tests.log)…"
 if swift test --disable-sandbox 2>&1 | tee build/release-tests.log; then
@@ -38,5 +40,10 @@ shasum -a 256 "$zip" | awk '{print $1"  Tether-'"$ver"'.zip"}' > "$zip.sha256"
 build/sign-tool sign-update "$key" "$zip" "$ver" > "$zip.sig2"
 build/sign-tool verify "$pub" "$zip" "$zip.sig2" "$ver" >/dev/null || { echo "The signature doesn't verify."; exit 1; }
 [ "$dry" = 1 ] && { echo "Dry run OK: v$ver would be published; zip signed and signature verified ($(du -h "$zip" | cut -f1))."; exit 0; }
-gh release create "v$ver" "$zip" "$zip.sha256" "$zip.sig2" --repo Ol775/tether --title "v$ver (beta)" --notes "$note" --latest
+if [ "$state" = "true" ]; then  # finalize the draft CI created on the version-bump push
+  gh release upload "v$ver" "$zip" "$zip.sha256" "$zip.sig2" --repo Ol775/tether --clobber
+  gh release edit "v$ver" --repo Ol775/tether --draft=false --latest --title "v$ver (beta)" --notes "$note"
+else
+  gh release create "v$ver" "$zip" "$zip.sha256" "$zip.sig2" --repo Ol775/tether --title "v$ver (beta)" --notes "$note" --latest
+fi
 echo "Released v$ver"

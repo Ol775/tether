@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write  # draft a release when VERSION is bumped; the signed assets are published later from the Mac
 
 jobs:
   macos:
@@ -34,6 +34,22 @@ jobs:
           name: Tether-release-candidate
           path: dist/Tether-*.zip
           if-no-files-found: error
+      - name: Draft a release when VERSION is bumped
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ver=$(cat VERSION)
+          if gh release view "v$ver" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release v$ver already exists; nothing to draft."; exit 0
+          fi
+          notes=$(awk -v v="## $ver " 'index($0, v) == 1 {on = 1; next} /^## / {on = 0} on' CHANGELOG.md | sed '/^$/d')
+          if [ -z "$notes" ]; then
+            echo "VERSION is $ver but CHANGELOG has no entry; skipping draft."; exit 0
+          fi
+          gh release create "v$ver" --repo "$GITHUB_REPOSITORY" --draft --title "v$ver (beta)" --notes "$notes"
+          echo "Drafted v$ver. Finish it on your Mac with: ./release.sh"
+
       - name: Retain complete test log
         if: always()
         uses: actions/upload-artifact@v4

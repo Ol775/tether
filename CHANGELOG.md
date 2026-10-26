@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.3 (2026-10-26)
+
+- Samsung Jellyfin builds now default to the known-good Jellyfin Web 10.10.7 instead of the latest release. Newer Jellyfin Web (10.11+/12.x) installs on older Samsung TVs but hangs on the splash logo; the version field stays editable for newer TVs that need a newer build.
+
 ## 0.3.2 (2026-10-26)
 
 - Added an opt-in experimental Samsung root-command console for a separately prepared `samsung-tv-root` v0.0.12 tool. Every attempt, including identity verification, requires review of the exact TV and command. This is a one-shot archive-root integration, not an interactive shell or a change to Samsung's SDB shell capability.
