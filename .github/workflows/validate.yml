@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write  # draft a release when VERSION is bumped; the signed assets are published later from the Mac
+  contents: read
 
 jobs:
   macos:
@@ -34,8 +34,24 @@ jobs:
           name: Tether-release-candidate
           path: dist/Tether-*.zip
           if-no-files-found: error
+      - name: Retain complete test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tether-test-log
+          path: build/ci-tests.log
+
+  # Write-scoped and isolated: only checkout + gh run here, never the build/test of
+  # (possibly untrusted) code, and only on a main push after the macos job passes.
+  draft-release:
+    needs: macos
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
       - name: Draft a release when VERSION is bumped
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -49,10 +65,3 @@ jobs:
           fi
           gh release create "v$ver" --repo "$GITHUB_REPOSITORY" --draft --title "v$ver (beta)" --notes "$notes"
           echo "Drafted v$ver. Finish it on your Mac with: ./release.sh"
-
-      - name: Retain complete test log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: Tether-test-log
-          path: build/ci-tests.log
