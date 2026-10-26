@@ -40,7 +40,7 @@ extension AppModel {
             defer { diagnosticProgress = nil; diagnosticTask = nil; isBusy = false }
             do {
                 diagnosticReport = try await ConnectionDiagnostics.run(service: service, endpoint: endpoint,
-                    localAddresses: addresses, adb: adb, sdb: sdb, progress: { [weak self] line in
+                    localAddresses: addresses, adb: adb, sdb: sdb, progress: { @Sendable [weak self] line in
                         await MainActor.run { self?.diagnosticProgress = line }
                     })
             } catch is CancellationError { serviceMessage = "Checks stopped. No device settings were changed." }
