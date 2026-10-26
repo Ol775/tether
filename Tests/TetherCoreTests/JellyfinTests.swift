@@ -42,6 +42,13 @@ struct JellyfinTests {
         #expect(!steps.contains { $0.arguments.contains("uninstall") })
     }
 
+    @Test func knownGoodWebVersionIsAValidStablePin() {
+        // The Samsung default must stay a buildable stable version (clone uses `--branch v<version>`),
+        // or fresh Tizen builds break. 10.11+/12.x hang on the splash on older TVs, so keep it < 10.11.
+        #expect(Jellyfin.stableVersion(Jellyfin.knownGoodWebVersion) == Jellyfin.knownGoodWebVersion)
+        #expect(Updater.isNewer("10.11.0", than: Jellyfin.knownGoodWebVersion))
+    }
+
     @Test func parsesInstalledVersion() {
         #expect(Jellyfin.installedAndroidVersion("Package [org.jellyfin.androidtv]\n    versionName=0.19.10\n") == "0.19.10")
         #expect(Jellyfin.installedAndroidVersion("not installed") == nil)

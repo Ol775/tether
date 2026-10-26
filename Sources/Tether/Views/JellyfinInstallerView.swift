@@ -48,7 +48,7 @@ struct JellyfinInstallerView: View {
             }
             if samsung { samsungOptions } else { androidOptions }
             if let latestVersion {
-                Text("Latest \(samsung ? "Jellyfin Web" : "Android TV release"): \(latestVersion)\(revision.map { " · Tizen source " + $0.prefix(8) } ?? "")")
+                Text("Latest \(samsung ? "Jellyfin Web" : "Android TV release"): \(latestVersion)\(revision.map { " · Tizen source " + $0.prefix(8) } ?? "")\(samsung ? " · recommended for older TVs: \(Jellyfin.knownGoodWebVersion)" : "")")
                     .font(.callout).foregroundStyle(.secondary).textSelection(.enabled)
             }
             if let lastChecked { Text("Checked \(lastChecked.formatted(date: .omitted, time: .shortened))").font(.caption).foregroundStyle(.secondary) }
@@ -172,7 +172,9 @@ struct JellyfinInstallerView: View {
                 let (web, commit) = try await (release, sha)
                 guard key == deviceKey else { return }
                 latestVersion = web.tag; revision = commit
-                if webVersion.isEmpty { webVersion = Jellyfin.stableVersion(web.tag) ?? "" }
+                // Default to the known-good client, not the latest: newer jellyfin-web hangs on the
+                // splash logo on older Samsung Tizen browsers. User can still type a newer version.
+                if webVersion.isEmpty { webVersion = Jellyfin.knownGoodWebVersion }
             } else {
                 let release = try await GitHubRelease.latest(owner: "jellyfin", repo: "jellyfin-androidtv")
                 _ = try Jellyfin.androidAsset(release, abis: model.selected?.abis ?? [])

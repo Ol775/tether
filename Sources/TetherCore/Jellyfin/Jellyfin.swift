@@ -28,6 +28,13 @@ public enum Jellyfin {
     public static let androidID = PackageName("org.jellyfin.androidtv")!
     public static let tizenID = TizenAppID("AprZAARz4r.Jellyfin")!
 
+    /// jellyfin-web 10.11+/12.x install on Samsung Tizen but hang on the splash logo on older TV
+    /// browser engines; 10.10.7 is the community-known-good client. We default the Samsung build to
+    /// this rather than the latest release so a fresh build actually runs. It's a calibration knob,
+    /// not a lock: the version field stays user-editable for newer TVs.
+    /// ponytail: hardcoded known-good pin; revisit when newer jellyfin-web regains old-Tizen support.
+    public static let knownGoodWebVersion = "10.10.7"
+
     /// Jellyfin server/web releases were "10.x.y"; from v12 they dropped the patch component ("12.3"). Accept both.
     public static func stableVersion(_ raw: String) -> String? {
         let version = raw.hasPrefix("v") ? String(raw.dropFirst()) : raw
