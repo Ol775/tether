@@ -91,7 +91,7 @@ extension AppModel {
     func setUpSamsungTools(acceptingLicense: Bool) async {
         toolsProgress = []
         await run("Couldn't set up Samsung's tools") {
-            try await tools.install(acceptingLicense: acceptingLicense) { [weak self] line in
+            try await tools.install(acceptingLicense: acceptingLicense) { @Sendable [weak self] line in
                 Task { @MainActor in self?.toolsProgress.append(line) }
             }
             tizenToolsReady = true

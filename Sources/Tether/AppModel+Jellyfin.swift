@@ -63,7 +63,7 @@ extension AppModel {
                     let commit: String
                     if let revision { commit = revision } else { commit = try await Jellyfin.tizenRevision() }
                     build = try await JellyfinTizenBuilder(cli: cli).build(version: version, commit: commit, profile: profile, cache: cache,
-                                                                           author: author, distributor: distributor) { [weak self] message in
+                                                                           author: author, distributor: distributor) { @Sendable [weak self] message in
                         Task { @MainActor in
                             guard let self, self.jellyfinOperationID == operationID else { return }
                             self.jellyfinProgress = message

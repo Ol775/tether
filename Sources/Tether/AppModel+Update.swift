@@ -58,7 +58,7 @@ extension AppModel {
         updateStatus = .installing("Starting…")
         do {
             let installer = UpdateInstaller(workDir: Self.updatesFolder)
-            let app = try await installer.prepare(info) { line in Task { @MainActor in self.updateStatus = .installing(line) } }
+            let app = try await installer.prepare(info) { @Sendable line in Task { @MainActor in self.updateStatus = .installing(line) } }
             updateStatus = .installing("Installing…")
             try installer.apply(app, to: dest)
             NSApp.terminate(nil)
