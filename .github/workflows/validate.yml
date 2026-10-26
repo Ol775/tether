@@ -25,8 +25,12 @@ jobs:
         run: |
           set -o pipefail
           mkdir -p build
-          swift build --disable-sandbox --target TetherCoreTests 2>&1 | tee build/ci-tests.log
-          swift test --disable-sandbox --skip-build 2>&1 | tee -a build/ci-tests.log
+          # `swift test` builds every product, and the GUI executable crashes IRGen here, so drop it
+          # from the manifest for this ephemeral checkout. The tests only cover TetherCore; the only
+          # products left are TetherCore + its test bundle, so none of the GUI is compiled.
+          sed -i '' -e '/\.executable(name: "Tether", targets: \["Tether"\]),/d' \
+                    -e '/\.executableTarget(name: "Tether", dependencies: \["TetherCore"\]),/d' Package.swift
+          swift test --disable-sandbox 2>&1 | tee build/ci-tests.log
       - name: Retain complete test log
         if: always()
         uses: actions/upload-artifact@v4
