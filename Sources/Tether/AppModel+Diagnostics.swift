@@ -2,7 +2,7 @@ import AppKit
 import Foundation
 import TetherCore
 
-private struct ReconnectTarget: Codable {
+private struct ReconnectTarget: Codable, Equatable {
     let service: DebugService
     let address: String
     let port: String
@@ -126,6 +126,17 @@ extension AppModel {
         defaults.removeObject(forKey: "restartConnections")
         defaults.removeObject(forKey: "restartSelection")
         guard let targets = try? JSONDecoder().decode([ReconnectTarget].self, from: data) else { return }
+        let failures = await reconnect(targets)
+        if let selection {
+            if tizenDevices.contains(where: { $0.serial == selection }) { await selectTizen(selection) }
+            else if devices.contains(where: { $0.serial == selection }) { await select(selection) }
+        }
+        if !failures.isEmpty { alert = AppAlert(title: "Tether restarted; some devices couldn’t reconnect", message: failures.joined(separator: "\n")) }
+    }
+
+    /// Connects each target in turn, returning human-readable failures. `connect`/`connectTizen` are
+    /// idempotent, so re-running against an already-connected device is harmless.
+    private func reconnect(_ targets: [ReconnectTarget]) async -> [String] {
         var failures: [String] = []
         for target in targets {
             guard let endpoint = try? ConnectionEndpoint(address: target.address, port: target.port) else { continue }
@@ -134,10 +145,44 @@ extension AppModel {
                 else { try await connect(host: endpoint.host, port: endpoint.port) }
             } catch { failures.append("\(target.address): \(advice(for: error))") }
         }
-        if let selection {
-            if tizenDevices.contains(where: { $0.serial == selection }) { await selectTizen(selection) }
-            else if devices.contains(where: { $0.serial == selection }) { await select(selection) }
-        }
-        if !failures.isEmpty { alert = AppAlert(title: "Tether restarted; some devices couldn’t reconnect", message: failures.joined(separator: "\n")) }
+        return failures
+    }
+
+    // MARK: - Remembered devices
+
+    // Network devices the user asked Tether to reconnect on every launch. USB devices reappear when
+    // plugged in, so only host:port devices are remembered. Same shape and ports as a restart reconnect.
+    private static let rememberedKey = "rememberedDevices"
+
+    private var rememberedTargets: [ReconnectTarget] {
+        guard let data = UserDefaults.standard.data(forKey: Self.rememberedKey),
+              let targets = try? JSONDecoder().decode([ReconnectTarget].self, from: data) else { return [] }
+        return targets
+    }
+
+    private func setRemembered(_ target: ReconnectTarget, _ on: Bool) {
+        var list = rememberedTargets.filter { $0 != target }
+        if on { list.append(target) }
+        UserDefaults.standard.set(try? JSONEncoder().encode(list), forKey: Self.rememberedKey)
+    }
+
+    private func target(for device: DeviceProfile) -> ReconnectTarget? {
+        device.serial.contains(":") ? ReconnectTarget(service: .adb, address: device.serial, port: "5555") : nil
+    }
+    private func target(for tv: TizenDevice) -> ReconnectTarget {
+        ReconnectTarget(service: .sdb, address: tv.serial, port: "26101")
+    }
+
+    /// USB devices can't be remembered by endpoint; only wireless ones can.
+    func canRemember(_ device: DeviceProfile) -> Bool { target(for: device) != nil }
+    func isRemembered(_ device: DeviceProfile) -> Bool { target(for: device).map { rememberedTargets.contains($0) } ?? false }
+    func isRemembered(_ tv: TizenDevice) -> Bool { rememberedTargets.contains(target(for: tv)) }
+    func toggleRemembered(_ device: DeviceProfile) { if let t = target(for: device) { setRemembered(t, !rememberedTargets.contains(t)) } }
+    func toggleRemembered(_ tv: TizenDevice) { let t = target(for: tv); setRemembered(t, !rememberedTargets.contains(t)) }
+
+    /// Reconnects remembered devices at launch. Unreachable devices (switched off) fail quietly —
+    /// a remembered TV that's simply off shouldn't raise an alert on every launch.
+    func reconnectRememberedDevices() async {
+        _ = await reconnect(rememberedTargets)
     }
 }

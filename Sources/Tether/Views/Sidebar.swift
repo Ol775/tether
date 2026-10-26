@@ -60,6 +60,11 @@ struct DeviceRow: View {
         .listRowBackground(isSelected ? RoundedRectangle(cornerRadius: 8).fill(.selection.opacity(0.35)) : nil)
         .accessibilityLabel("\(device.model), connected, \(device.serial)")
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+        .contextMenu {
+            if model.canRemember(device) {
+                Toggle("Remember this device", isOn: Binding(get: { model.isRemembered(device) }, set: { _ in model.toggleRemembered(device) }))
+            }
+        }
     }
 }
 
@@ -85,5 +90,8 @@ struct TizenRow: View {
         .listRowBackground(isSelected ? RoundedRectangle(cornerRadius: 8).fill(.selection.opacity(0.35)) : nil)
         .accessibilityLabel("Samsung \(tv.model), connected, \(tv.serial)")
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+        .contextMenu {
+            Toggle("Remember this TV", isOn: Binding(get: { model.isRemembered(tv) }, set: { _ in model.toggleRemembered(tv) }))
+        }
     }
 }

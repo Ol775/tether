@@ -79,6 +79,7 @@ struct RootView: View {
         }
         .task {
             await model.resumeConnectionsAfterRestart()
+            await model.reconnectRememberedDevices()
             while !Task.isCancelled {
                 await model.pollDevices()
                 await model.pollTizen()
