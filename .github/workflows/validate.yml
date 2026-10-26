@@ -1,0 +1,42 @@
+name: Validate Tether
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test the full suite
+        run: |
+          set -o pipefail
+          mkdir -p build
+          swift test --disable-sandbox 2>&1 | tee build/ci-tests.log
+      - name: Build the release app
+        run: ./scripts/bundle.sh
+      - name: Verify the app and archive it
+        run: |
+          codesign --verify --deep --strict build/Tether.app
+          version=$(cat VERSION)
+          mkdir -p dist
+          ditto -c -k --keepParent build/Tether.app "dist/Tether-$version.zip"
+      - name: Retain unsigned build for offline release signing
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tether-release-candidate
+          path: dist/Tether-*.zip
+          if-no-files-found: error
+      - name: Retain complete test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tether-test-log
+          path: build/ci-tests.log

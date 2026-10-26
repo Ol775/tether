@@ -4,7 +4,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 VERSION=$(cat VERSION)
 ./scripts/fetch-platform-tools.sh
-swift build -c release --product Tether
+swift build --disable-sandbox -c release -debug-info-format none --product Tether
 BIN=$(swift build -c release --show-bin-path)
 APP=build/Tether.app
 rm -rf "$APP"

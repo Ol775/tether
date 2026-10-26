@@ -21,7 +21,7 @@ git fetch -q origin main; [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/ma
 gh release view "v$ver" --repo Ol775/tether >/dev/null 2>&1 && { echo "v$ver is already released. Bump VERSION."; exit 1; }
 mkdir -p build
 echo "Running the test suite (log: build/release-tests.log)…"
-if swift test 2>&1 | tee build/release-tests.log; then
+if swift test --disable-sandbox 2>&1 | tee build/release-tests.log; then
   echo "Test suite passed. Building the release…"
 else
   echo "The test suite failed. Full output is saved in build/release-tests.log."
