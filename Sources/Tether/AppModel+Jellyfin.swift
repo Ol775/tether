@@ -8,7 +8,7 @@ extension AppModel {
     }
 
     func startJellyfinAndroid() {
-        guard let device = selected, !isBusy else { return }
+        guard let device = selected, canManageConnections else { return }
         beginJellyfin()
         jellyfinOperation = Task { [self] in
             defer { endJellyfin() }
@@ -41,7 +41,7 @@ extension AppModel {
     }
 
     func startJellyfinTizen(version: String, profile: String, password: String, revision: String?, reinstall: Bool) {
-        guard let tv = selectedTizen, let cache = jellyfinCache, !isBusy else { return }
+        guard let tv = selectedTizen, let cache = jellyfinCache, canManageConnections else { return }
         beginJellyfin()
         let operationID = jellyfinOperationID
         jellyfinOperation = Task { [self] in

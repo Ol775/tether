@@ -32,6 +32,10 @@ The app is ad-hoc signed, not notarised, so macOS asks you to approve it on firs
 - GitHub release APKs installed to a device are size-checked and checked against GitHub's digest when present. Tether can't
   tell you whether an app is trustworthy.
 - The debloat catalogues are unverified starter lists; see the device checklists.
+- The experimental Samsung root-command adapter executes a separately selected third-party tool. Tether checks its
+  reported CLI version, not its authenticity. Every TV root attempt requires confirmation; no restore point or undo
+  is provided. The tool's UID 0 and cleanup evidence is its own report, not an independent audit by Tether. See
+  [root-command limitations](docs/root-commands.md).
 - Restore points (package lists, settings dumps, saved packages) are stored unencrypted in
   `~/Library/Application Support/Tether`.
 - Tether has no telemetry. Network use is: your devices on the local network, GitHub (update check, release downloads) and,

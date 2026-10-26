@@ -1,5 +1,8 @@
 # Safety model
 
+These guarantees apply to Tether's supported app changes, tweaks and restores. The separately enabled experimental
+[Samsung root-command integration](root-commands.md) bypasses this engine and has no automatic backup or undo.
+
 1. **No restore point, no change.** `ChangeEngine` snapshots first (package states, APKs of apps being removed,
    settings) and re-reads the file before proceeding. If that fails, nothing is touched.
 2. **One path to mutate.** Debloat, tweaks and reverts all go through `ChangeEngine`. It applies in order, stops at the
@@ -27,4 +30,13 @@
 11. **App ids and package paths are validated** (letters, digits, `.` `_` `-`, no leading `.` or `-`; installs must be an
     existing `.wgt`/`.tpk`), and arguments are always passed as an array, never a shell string.
 12. **Restore is honest.** Tether only reinstalls apps it installed itself and says so for the rest.
+
+## Experimental root commands
+
+The external `samsung-tv-root` archive route runs only after the user reviews and confirms the exact target and command.
+Identity verification also runs an exploit. Tether does not promise compatibility, enable background root attempts,
+or treat the project's probe as a passive diagnostic. Its selected tool is not bundled or authenticated by Tether;
+the reviewed version check is an interface-compatibility check only. Command output stays in memory, and only attempt
+metadata is logged. A successful session requires the tool's authenticated UID 0/EUID 0 evidence, matching host and
+command, plus its cleanup and checked-system-file results. These checks do not undo command effects.
 

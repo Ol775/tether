@@ -6,3 +6,7 @@ Use a compact device menu, scrollable setup instructions and connection form, wi
 Signature detail: numbered device-specific setup instructions alongside an actionable connection diagnostic.
 Keep pairing separate from connecting; a successful TCP check proves reachability only.
 Use existing spacing rhythm: 8 within groups, 16 between controls, 24 between sections; native semantic colours and type styles are the token system.
+
+Connection diagnostics extends this native sheet pattern: target form, staged checks, an explicit next step, and separate recovery controls. Keep TCP reachability separate from a ready debugging session. Reports are local and copyable; failures and partial results stay visible. App and service restarts must be unavailable during device operations.
+
+Experimental Samsung root commands use a separate native sheet reached from system customisation. Show the target and unverified compatibility, distinguish temporary command sessions from the firmware's regular SDB shell, and review the exact command in a scrollable confirmation sheet. Never imply automatic backup, undo, or persistent root.

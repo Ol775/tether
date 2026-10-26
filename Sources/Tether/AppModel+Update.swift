@@ -44,7 +44,7 @@ extension AppModel {
 
     func installUpdate() async {
         guard case .available(let info) = updateStatus else { return }
-        guard !isBusy else {
+        guard canManageConnections else {
             alert = AppAlert(title: "Finish the current change first", message: "Tether is changing a device. Update once that is done.")
             return
         }

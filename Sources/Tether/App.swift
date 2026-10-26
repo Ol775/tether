@@ -22,6 +22,11 @@ struct TetherApp: App {
         .commands {
             CommandGroup(after: .appInfo) {
                 Button("Check for Updates…") { Task { await model.checkForUpdates(userInitiated: true) } }
+                Button("Restart Tether") { model.restartApplication() }.disabled(!model.canRestartApp)
+            }
+            CommandGroup(replacing: .help) {
+                Button("Connection diagnostics…") { model.openDiagnostics() }
+                    .disabled(model.isBusy || model.showDiagnostics)
             }
         }
     }

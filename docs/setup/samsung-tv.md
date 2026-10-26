@@ -22,7 +22,9 @@ Samsung TVs talk `sdb`, not `adb`, and the TV has to be put into Developer Mode 
 ## What it cannot do
 
 - A TV with no DUID that gets a new IP address looks like a new TV: its restore points and remembered locks stay under the old address.
-- Rooting, firmware changes or defeating Samsung's locks are out of scope.
+- The normal SDB connection cannot root the TV or defeat Samsung's locks. An explicit, separately configured
+  [experimental root-command adapter](../root-commands.md) is available; compatibility is unverified and those
+  commands bypass automatic restore points. Firmware modification is not provided by Tether.
 - TVs from before 2019 are refused.
 - An open port 26101 confirms TCP reachability, but not a working SDB session. A generic “failed to connect” message
   alone does not identify the cause. Confirm the Host PC IP and fully restart the TV before retrying.

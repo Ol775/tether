@@ -26,7 +26,7 @@ a file. Built with SwiftUI and Liquid Glass for macOS 26+.
 - **Connects over the network** to Fire TV (Fire OS), Android TV and Android phones: Bonjour discovery,
   wireless-pairing codes, or a manual IP address. The Add Device sheet accepts pasted `IP:port` addresses,
   supports manual pairing, and includes a cancellable TCP port check with troubleshooting guidance.
-- **Restore points.** Before every change Tether saves the app list and states, the APKs of anything it
+- **Restore points.** Before supported app changes and tweaks Tether saves the app list and states, the APKs of anything it
   is about to remove, and the relevant settings. Revert any change in one click.
 - **Debloat** from a curated catalogue with risk tiers (Safe, Recommended, Advanced, Expert), a plain-English
   description and a "what may break" note for each app. Removal is `pm uninstall -k --user 0`, which is reversible.
@@ -61,6 +61,10 @@ doubles as a launch smoke test; `demo/run.sh` opens the app on that demo device 
 
 ## Updates
 
+Samsung root commands are available as an explicit experimental integration under **Overview → Samsung system customisation**. They require a separately prepared third-party tool and bypass automatic backups; see [root commands and limitations](docs/root-commands.md).
+
+Connection trouble? Open **Help → Connection diagnostics…** to check the network and debugging session, restart ADB or SDB, or restart Tether. See [diagnostics and recovery](docs/diagnostics.md).
+
 Tether checks GitHub for new releases (at launch and every few hours, or **Tether → Check for Updates…**) and can update
 itself. An update installs only if it carries a valid signature from the offline release key built into the app, on top of
 the usual size, checksum, bundle-id and code-signature checks. See [SECURITY.md](SECURITY.md#how-updates-are-trusted). A copy
@@ -68,7 +72,7 @@ run from Downloads can't replace itself: move it to Applications first.
 
 ## Safety model
 
-See [docs/safety-model.md](docs/safety-model.md). In short: no change without a verified restore point, one
+See [docs/safety-model.md](docs/safety-model.md). Supported app changes and tweaks require a verified restore point, one
 code path for every mutation, and strict validation of anything that reaches the device's shell.
 
 ## Roadmap

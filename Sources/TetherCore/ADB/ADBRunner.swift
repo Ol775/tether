@@ -5,6 +5,7 @@ public actor ADBRunner {
     private let executable: URL
     private let port: Int
     private let defaultTimeout: Duration
+    private var restarting = false
 
     /// Pulls and installs move whole APKs over Wi-Fi, so they get minutes rather than the short command timeout.
     public static let transferTimeout: Duration = .seconds(600)
@@ -16,10 +17,21 @@ public actor ADBRunner {
     }
 
     public func run(_ args: [String], serial: String? = nil, timeout: Duration? = nil) async throws -> String {
+        guard !restarting else { throw ADBError.offline }
         var full = ["-P", String(port)]
         if let serial { full += ["-s", serial] }
         full += args
         return try await Self.exec(executable, full, timeout: timeout ?? defaultTimeout)
+    }
+
+    /// Restarts Tether's private server only, leaving the system ADB server on 5037 alone.
+    public func restartServer() async throws {
+        guard !restarting else { throw ADBError.offline }
+        restarting = true
+        defer { restarting = false }
+        _ = try await Self.exec(executable, ["-P", String(port), "kill-server"], timeout: .seconds(8))
+        _ = try await Self.exec(executable, ["-P", String(port), "start-server"], timeout: .seconds(8))
+        _ = try await Self.exec(executable, ["-P", String(port), "devices"], timeout: .seconds(6))
     }
 
     private static func exec(_ exe: URL, _ args: [String], timeout: Duration) async throws -> String {

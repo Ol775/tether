@@ -55,7 +55,7 @@ struct PairingSheet: View {
     private var validCode: Bool { code.count == 6 && code.allSatisfy { $0.isASCII && $0.isNumber } }
     private var checking: Bool { checkTask != nil }
     private var canSubmit: Bool {
-        endpoint != nil && !working && !checking && (!pairing || validCode)
+        endpoint != nil && !working && !checking && model.canManageConnections && (!pairing || validCode)
             && (kind != .samsungTV || model.tizenToolsReady)
     }
 
@@ -82,6 +82,9 @@ struct PairingSheet: View {
             }
             Divider()
             HStack(spacing: 12) {
+                Button("Diagnostics…") {
+                    model.openDiagnostics(service: kind == .samsungTV ? .sdb : .adb, endpoint: endpoint)
+                }.disabled(working || !model.canManageConnections)
                 if working {
                     ProgressView().controlSize(.small)
                     Text(pairing ? "Pairing…" : "Connecting…").font(.callout).foregroundStyle(.secondary)
@@ -97,6 +100,7 @@ struct PairingSheet: View {
         }
         .frame(width: 620, height: 620)
         .sheet(isPresented: Bindable(model).showTizenSetup) { TizenSetupSheet() }
+        .sheet(isPresented: Bindable(model).showDiagnostics) { DiagnosticsSheet() }
         .onChange(of: kind) {
             pairing = kind == .phone
             port = kind == .samsungTV ? "26101" : kind == .phone ? "" : "5555"

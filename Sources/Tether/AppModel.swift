@@ -83,6 +83,7 @@ final class AppModel {
         didSet {
             guard oldValue != selectedTizenSerial else { return }
             tizenApps = []; tizenRestorePoints = []; certificateState = nil
+            rootResult = nil; rootMessage = nil; pendingRootRequest = nil
             if selectedTizenSerial != nil {
                 selectedSerial = nil
                 if !Pane.tizenPanes.contains(section) { section = .overview }
@@ -115,6 +116,28 @@ final class AppModel {
     var reportToShow: ReportBox?
     var toast: Toast?
     var showPairing = false
+    var showDiagnostics = false
+    var diagnosticService: DebugService = .sdb
+    var diagnosticAddress = ""
+    var diagnosticPort = "26101"
+    var diagnosticReport: ConnectionReport?
+    var diagnosticProgress: String?
+    var diagnosticTask: Task<Void, Never>?
+    var serviceMessage: String?
+    var restartingApp = false
+    var restartingService = false
+    var connectionGeneration = 0
+    var showRootCommands = false
+    var rootToolPath = UserDefaults.standard.string(forKey: "rootToolPath") ?? ""
+    var rootPayloadPath = UserDefaults.standard.string(forKey: "rootPayloadPath") ?? ""
+    var rootRuntime: SamsungRootRuntime = .automatic
+    var rootCallbackAddress = LocalNetwork.address ?? ""
+    var rootCommand = "id"
+    var rootLocalReport: String?
+    var rootMessage: String?
+    var rootResult: SamsungRootResult?
+    var rootOperationRunning = false
+    var pendingRootRequest: SamsungRootRequest?
     var showInspector = true
     var inspected: CatalogEntry?
     var pendingChoice: ChoiceRequest?
@@ -214,7 +237,7 @@ final class AppModel {
 
     /// One job at a time: a second request while busy is dropped (the buttons are disabled anyway).
     func run(_ title: String = "Something went wrong", _ work: () async throws -> Void) async {
-        guard !isBusy else { return }
+        guard canManageConnections else { return }
         isBusy = true
         defer { isBusy = false }
         do { try await work() }
@@ -225,7 +248,9 @@ final class AppModel {
     // MARK: - devices
 
     func pollDevices() async {
-        guard let found = try? await deviceManager.devices() else { return }
+        guard !isBusy else { return }
+        let generation = connectionGeneration
+        guard let found = try? await deviceManager.devices(), !isBusy, generation == connectionGeneration else { return }
         if found != devices {
             devices = found
             if selected == nil && selectedTizen == nil { selectedSerial = found.first?.serial }
@@ -254,11 +279,18 @@ final class AppModel {
     }
 
     func connect(host: String, port: Int) async throws {
-        try await deviceManager.connect(host: host, port: port)
+        guard canManageConnections else { throw ChangeError.busy }
+        isBusy = true
+        do { try await deviceManager.connect(host: host, port: port) }
+        catch { isBusy = false; throw error }
+        isBusy = false
         await pollDevices()
     }
 
     func pair(host: String, port: Int, code: String) async throws {
+        guard canManageConnections else { throw ChangeError.busy }
+        isBusy = true
+        defer { isBusy = false }
         try await deviceManager.pair(host: host, port: port, code: code)
     }
 
@@ -357,7 +389,10 @@ final class AppModel {
     // MARK: - console
 
     func console(_ command: String, confirmed: Bool) async throws -> String {
+        guard canManageConnections else { throw ChangeError.busy }
         guard let device = selected else { return "" }
+        isBusy = true
+        defer { isBusy = false }
         return try await Console.run(command, on: device, adb: adb, log: log, confirmed: confirmed)
     }
 }

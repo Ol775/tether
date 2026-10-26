@@ -8,7 +8,9 @@ extension AppModel {
     // MARK: - devices
 
     func pollTizen() async {
-        guard tizenToolsReady, let found = try? await tizenManager.devices(), found != tizenDevices else { return }
+        guard !isBusy, tizenToolsReady else { return }
+        let generation = connectionGeneration
+        guard let found = try? await tizenManager.devices(), !isBusy, generation == connectionGeneration, found != tizenDevices else { return }
         tizenDevices = found
         if let serial = selectedTizenSerial, !found.contains(where: { $0.serial == serial }) { selectedTizenSerial = nil }
         if selected == nil && selectedTizen == nil { selectedTizenSerial = found.first?.serial }
@@ -22,7 +24,11 @@ extension AppModel {
     }
 
     func connectTizen(host: String, port: Int) async throws {
-        try await tizenManager.connect(host: host, port: port)
+        guard canManageConnections else { throw TizenError.busy }
+        isBusy = true
+        do { try await tizenManager.connect(host: host, port: port) }
+        catch { isBusy = false; throw error }
+        isBusy = false
         await pollTizen()
     }
 

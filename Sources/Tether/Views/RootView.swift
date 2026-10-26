@@ -18,6 +18,11 @@ struct RootView: View {
         }
         .toolbar {
             ToolbarItem {
+                Button("Connection diagnostics", systemImage: "stethoscope") { model.openDiagnostics() }
+                    .help("Check connections and restart device services")
+                    .disabled(model.isBusy)
+            }
+            ToolbarItem {
                 Button("Add device", systemImage: "plus") { model.showPairing = true }
                     .help("Add a device")
             }
@@ -28,8 +33,10 @@ struct RootView: View {
             }
         }
         .sheet(isPresented: $model.showPairing) { PairingSheet() }
+        .sheet(isPresented: Binding(get: { model.showDiagnostics && !model.showPairing }, set: { model.showDiagnostics = $0 })) { DiagnosticsSheet() }
         .sheet(item: $model.reportToShow) { ReportSheet(box: $0) }
         .sheet(item: $model.tizenReportToShow) { TizenReportSheet(box: $0) }
+        .sheet(isPresented: $model.showRootCommands) { RootCommandsSheet() }
         .confirmationDialog("This TV has a new address", isPresented: Binding(get: { model.tizenAddressChangeRevert != nil }, set: { if !$0 { model.tizenAddressChangeRevert = nil } }), titleVisibility: .visible, presenting: model.tizenAddressChangeRevert) { rp in
             Button("Revert on \(model.selectedTizen?.model ?? "this TV")") { Task { await model.revertTizen(rp, addressChangeConfirmed: true) } }
             Button("Cancel", role: .cancel) {}
@@ -61,7 +68,7 @@ struct RootView: View {
         .alert("Tether is beta software", isPresented: $model.showBetaNotice) {
             Button("I understand") { UserDefaults.standard.set(true, forKey: "betaAcknowledged") }
         } message: {
-            Text("Tether changes settings and removes apps on your devices. It saves a restore point first and most changes can be undone, but it has had very little real-device testing. Use it at your own risk, on devices you own and can recover.")
+            Text("Tether changes settings and removes apps on your devices. Supported app changes and tweaks save a restore point first. Experimental root commands have no automatic backup or undo. This app has had very little real-device testing. Use it at your own risk, on devices you own and can recover.")
         }
         .task {
             try? await Task.sleep(for: .seconds(3))
@@ -71,6 +78,7 @@ struct RootView: View {
             }
         }
         .task {
+            await model.resumeConnectionsAfterRestart()
             while !Task.isCancelled {
                 await model.pollDevices()
                 await model.pollTizen()
