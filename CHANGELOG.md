@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.4 (2026-10-26)
+
+- Added Remember this device: right-click a wireless device or Samsung TV in the sidebar to have Tether reconnect it automatically on every launch. USB devices aren't listed as they reappear when plugged in; a remembered device that's switched off is skipped quietly.
+
 ## 0.3.3 (2026-10-26)
 
 - Samsung Jellyfin builds now default to the known-good Jellyfin Web 10.10.7 instead of the latest release. Newer Jellyfin Web (10.11+/12.x) installs on older Samsung TVs but hangs on the splash logo; the version field stays editable for newer TVs that need a newer build.
